@@ -41,52 +41,90 @@ canvas {
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
 <script>
-/* ================= FIREBASE ================= */
+// ================= CONFIGURAÇÕES GLOBAIS =================
+const CONFIG = {
+    GRAVIDADE: 0.8,
+    CHAO: 320,
+    LIM_ESQ: 40,
+    LIM_DIR: 860,
+    VELOCIDADE: 4,
+    TAMANHO_COCO: 80,
+    DANO_SOCO: 8,
+    DANO_CHUTE: 15,
+    DANO_BOMBA: 20
+};
+
+// ================= FIREBASE ================= 
 firebase.initializeApp({
-  apiKey: "AIzaSyDy_gqNrFR7KmMonXp7KfgRc15UVj0g3Nw",
-  authDomain: "pinico-fighter.firebaseapp.com",
-  databaseURL: "https://pinico-fighter-default-rtdb.firebaseio.com",
-  projectId: "pinico-fighter",
-  storageBucket: "pinico-fighter.firebasestorage.app",
-  messagingSenderId: "152199667347",
-  appId: "1:152199667347:web:9c74188c88bdee8633f766"
+    apiKey: "AIzaSyDy_gqNrFR7KmMonXp7KfgRc15UVj0g3Nw",
+    authDomain: "pinico-fighter.firebaseapp.com",
+    databaseURL: "https://pinico-fighter-default-rtdb.firebaseio.com",
+    projectId: "pinico-fighter",
+    storageBucket: "pinico-fighter.firebasestorage.app",
+    messagingSenderId: "152199667347",
+    appId: "1:152199667347:web:9c74188c88bdee8633f766"
 });
 
 const db = firebase.database();
 
-/* ================= PLAYER ================= */
-const meuPlayer = prompt("Digite 1 para Player 1 ou 2 para Player 2");
-const meuId = meuPlayer === "1" ? "p1" : "p2";
-const inimigoId = meuId === "p1" ? "p2" : "p1";
+// ================= MÓDULO: UTILITIES =================
+const Utils = {
+    colisao(a, b) {
+        return a.x < b.x + b.w && 
+               a.x + a.w > b.x && 
+               a.y < b.y + b.h && 
+               a.y + a.h > b.y;
+    },
+    
+    criarParticulas(ctx, x, y, quantidade, cor) {
+        for (let i = 0; i < quantidade; i++) {
+            const particula = {
+                x: x + Math.random() * 20 - 10,
+                y: y + Math.random() * 20 - 10,
+                vx: Math.random() * 4 - 2,
+                vy: Math.random() * -3 - 1,
+                tamanho: Math.random() * 3 + 1,
+                vida: 20,
+                cor: cor
+            };
+            
+            ctx.fillStyle = particula.cor;
+            ctx.beginPath();
+            ctx.arc(particula.x, particula.y, particula.tamanho, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    },
+    
+    desenharBarra(ctx, x, y, largura, altura, valor, valorMax, corFundo, corBarra) {
+        // Fundo
+        ctx.fillStyle = corFundo;
+        ctx.fillRect(x, y, largura, altura);
+        
+        // Barra
+        ctx.fillStyle = corBarra;
+        const larguraAtual = (valor / valorMax) * largura;
+        ctx.fillRect(x, y, larguraAtual, altura);
+        
+        // Borda
+        ctx.strokeStyle = "white";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(x, y, largura, altura);
+    }
+};
 
-/* ================= CANVAS ================= */
-const canvas = document.getElementById("game");
-const ctx = canvas.getContext("2d");
-
-const fundo = new Image();
-fundo.src = "imagens/fundo.png";
-
-const GRAVIDADE = 0.8;
-const CHAO = 320;
-const LIM_ESQ = 40;
-const LIM_DIR = canvas.width - 40;
-
-// Variável global para controlar se o jogo terminou
-let jogoTerminou = false;
-
-/* ================= CLASSE DO COCÔ PROJÉTIL ================= */
+// ================= MÓDULO: COCO PROJÉTIL =================
 class CocoProjetil {
     constructor(x, y, direcao, cor, donoId) {
         this.x = x;
         this.y = y;
-        this.direcao = direcao; // -1 para esquerda, 1 para direita
+        this.direcao = direcao;
         this.cor = cor;
         this.donoId = donoId;
-        this.velX = direcao * 8; // Velocidade horizontal
-        this.velY = -15; // Lançado para cima
+        this.velX = direcao * 8;
+        this.velY = -15;
         this.raio = 12;
         this.ativo = true;
-        this.tempoVida = 100; // Frames de vida
+        this.tempoVida = 100;
     }
     
     atualizar() {
@@ -94,24 +132,24 @@ class CocoProjetil {
         
         this.x += this.velX;
         this.y += this.velY;
-        this.velY += GRAVIDADE; // Gravidade
+        this.velY += CONFIG.GRAVIDADE;
         this.tempoVida--;
         
-        // Se sair da tela ou tempo acabar, desativa
-        if (this.x < 0 || this.x > canvas.width || this.y > CHAO + 50 || this.tempoVida <= 0) {
+        if (this.x < 0 || this.x > 900 || this.y > CONFIG.CHAO + 50 || this.tempoVida <= 0) {
             this.ativo = false;
         }
     }
     
-    desenhar() {
+    desenhar(ctx) {
         if (!this.ativo) return;
         
+        // Coco
         ctx.fillStyle = this.cor;
         ctx.beginPath();
         ctx.arc(this.x, this.y, this.raio, 0, Math.PI * 2);
         ctx.fill();
         
-        // Detalhes do cocô
+        // Detalhes
         ctx.fillStyle = "#8B4513";
         ctx.beginPath();
         ctx.arc(this.x - 4, this.y - 3, 3, 0, Math.PI * 2);
@@ -123,7 +161,7 @@ class CocoProjetil {
         ctx.arc(this.x, this.y + 4, 3, 0, Math.PI * 2);
         ctx.fill();
         
-        // Efeito de trajetória
+        // Trajetória
         ctx.strokeStyle = "rgba(255, 255, 0, 0.3)";
         ctx.lineWidth = 2;
         ctx.setLineDash([3, 3]);
@@ -144,42 +182,55 @@ class CocoProjetil {
     }
 }
 
-/* ================= LUTADOR COCÔ GRANDE ================= */
+// ================= MÓDULO: LUTADOR COCÔ =================
 class LutadorCoco {
     constructor(x, cor, corSapato, controles, direcao, id) {
         this.id = id;
         this.inicialX = x;
         this.x = x;
-        this.y = CHAO;
+        this.y = CONFIG.CHAO;
         this.vy = 0;
         this.cor = cor;
         this.corSapato = corSapato;
-        this.tamanho = 80;
-        this.vel = 4;
+        this.tamanho = CONFIG.TAMANHO_COCO;
+        this.vel = CONFIG.VELOCIDADE;
         this.dir = direcao;
+        
+        // Estados
         this.pulando = false;
         this.atacando = false;
         this.chutando = false;
+        this.descendoRapido = false;
+        this.transformado = false; // NOVO: estado de transformação em bola
+        
+        // Temporizadores
         this.tempoAtaque = 0;
         this.tempoChute = 0;
+        this.tempoTransformacao = 0; // NOVO: tempo da transformação
+        
+        // Atributos
         this.vida = 100;
         this.vivo = true;
+        
+        // Controles
         this.ctrl = controles;
         this.ultimoDano = 0;
         this.olhosAbertos = true;
         this.tempoPiscar = 0;
+        
+        // Sapatos
         this.sapatoX = 0;
         this.sapatoY = 0;
         
-        // NOVO: Sistema de poder BOMBA DE COCÔ
-        this.descendoRapido = false;
-        this.cdPoder = 0; // Cooldown do poder
-        this.cocosAtivos = []; // Cocôs lançados
-        this.cargaPoder = 0; // Tempo segurando o poder
-        this.maxCarga = 30; // Máximo de frames para carregar
+        // Sistema de poder
+        this.cdPoder = 0;
+        this.cocosAtivos = [];
+        this.cargaPoder = 0;
+        this.maxCarga = 30;
     }
 
-    mover(keys) {
+    // ================= CONTROLES =================
+    mover(keys, jogoTerminou) {
         if (!this.vivo || jogoTerminou) return;
         
         if (keys[this.ctrl.esq]) { 
@@ -191,38 +242,49 @@ class LutadorCoco {
             this.dir = 1;
         }
         
-        this.x = Math.max(LIM_ESQ, Math.min(LIM_DIR, this.x));
+        this.x = Math.max(CONFIG.LIM_ESQ, Math.min(CONFIG.LIM_DIR, this.x));
     }
 
-    pular(keys) {
-        if (keys[this.ctrl.pulo] && !this.pulando && this.vivo && !this.chutando && !jogoTerminou) {
+    pular(keys, jogoTerminou) {
+        if (!this.vivo || jogoTerminou) return;
+        
+        // Pulo normal
+        if (keys[this.ctrl.pulo] && !this.pulando && !this.chutando) {
             this.vy = -18;
             this.pulando = true;
             this.descendoRapido = false;
+            this.transformado = false;
         }
         
-        // NOVO: Poder BOMBA DE COCÔ - Pular + Baixo
+        // Poder: Bomba de Cocô
         const teclaBaixo = this.id === "p1" ? "s" : "ArrowDown";
         if (this.pulando && keys[teclaBaixo] && this.cdPoder <= 0) {
-            this.descendoRapido = true;
-            this.vy = 20; // Desce rápido!
-            this.cargaPoder++;
-            
-            // Efeito visual de carregamento
-            if (this.cargaPoder % 5 === 0) {
-                // Partículas de efeito
-                this.criarParticulas(this.x, this.y, 3);
-            }
-        } else {
-            this.descendoRapido = false;
-            this.cargaPoder = 0;
+            this.ativarDescidaRapida();
+        } else if (this.descendoRapido) {
+            this.desativarDescidaRapida();
         }
     }
+    
+    ativarDescidaRapida() {
+        this.descendoRapido = true;
+        this.transformado = true; // Transforma em bola
+        this.tempoTransformacao = 10; // Mantém transformação por 10 frames
+        this.vy = 20; // Desce rápido
+        this.cargaPoder++;
+        
+        // Olhos abertos durante a descida
+        this.olhosAbertos = true;
+    }
+    
+    desativarDescidaRapida() {
+        this.descendoRapido = false;
+        this.cargaPoder = 0;
+    }
 
-    atacar(keys, inimigo) {
+    atacar(keys, inimigo, jogoTerminou) {
         if (!this.vivo || !inimigo.vivo || jogoTerminou) return;
 
-        // ATAQUE DE SOCO
+        // Soco
         if (keys[this.ctrl.atk] && !this.atacando && !this.chutando) {
             this.atacando = true;
             this.tempoAtaque = 8;
@@ -235,12 +297,12 @@ class LutadorCoco {
                 h: 35
             };
 
-            if (colisao(hit, inimigo.hitbox())) {
-                inimigo.receberDano(8);
+            if (Utils.colisao(hit, inimigo.hitbox())) {
+                inimigo.receberDano(CONFIG.DANO_SOCO);
             }
         }
 
-        // ATAQUE DE CHUTE
+        // Chute
         const teclaChute = this.id === "p1" ? "c" : ".";
         if (keys[teclaChute] && !this.chutando && !this.atacando) {
             this.chutando = true;
@@ -256,12 +318,31 @@ class LutadorCoco {
                 h: 30
             };
 
-            if (colisao(hit, inimigo.hitbox())) {
-                inimigo.receberDano(15);
+            if (Utils.colisao(hit, inimigo.hitbox())) {
+                inimigo.receberDano(CONFIG.DANO_CHUTE);
             }
         }
 
-        // Atualiza animação do sapato no chute
+        // Atualiza temporizadores
+        this.atualizarTemporizadores();
+    }
+    
+    atualizarTemporizadores() {
+        // Atualiza temporizador de transformação
+        if (this.transformado && this.tempoTransformacao > 0) {
+            this.tempoTransformacao--;
+            if (this.tempoTransformacao <= 0) {
+                this.transformado = false;
+            }
+        }
+        
+        // Atualiza ataque
+        if (this.atacando && --this.tempoAtaque <= 0) {
+            this.atacando = false;
+            this.olhosAbertos = true;
+        }
+        
+        // Atualiza chute
         if (this.chutando) {
             this.tempoChute--;
             if (this.tempoChute > 8) {
@@ -276,49 +357,19 @@ class LutadorCoco {
                 this.chutando = false;
             }
         }
-        
-        if (this.atacando && --this.tempoAtaque <= 0) {
-            this.atacando = false;
-            this.olhosAbertos = true;
-        }
     }
-    
-    // NOVO: Criar partículas de efeito
-    criarParticulas(x, y, quantidade) {
-        for (let i = 0; i < quantidade; i++) {
-            setTimeout(() => {
-                // Efeito visual apenas, não precisa sincronizar
-                const particula = {
-                    x: x + Math.random() * 20 - 10,
-                    y: y + Math.random() * 20 - 10,
-                    vx: Math.random() * 4 - 2,
-                    vy: Math.random() * -3 - 1,
-                    tamanho: Math.random() * 3 + 1,
-                    vida: 20,
-                    cor: this.cor
-                };
-                
-                // Desenha a partícula
-                ctx.fillStyle = this.cor;
-                ctx.beginPath();
-                ctx.arc(particula.x, particula.y, particula.tamanho, 0, Math.PI * 2);
-                ctx.fill();
-            }, i * 10);
-        }
-    }
-    
-    // NOVO: Atualizar cocôs ativos
+
+    // ================= SISTEMA DE PODER =================
     atualizarCocos(inimigo) {
         // Atualiza cocôs existentes
         for (let i = this.cocosAtivos.length - 1; i >= 0; i--) {
             const coco = this.cocosAtivos[i];
             coco.atualizar();
             
-            // Verifica colisão com inimigo
-            if (coco.ativo && inimigo.vivo && colisao(coco.hitbox(), inimigo.hitbox())) {
-                inimigo.receberDano(20); // Dano alto do cocô!
+            // Verifica colisão
+            if (coco.ativo && inimigo.vivo && Utils.colisao(coco.hitbox(), inimigo.hitbox())) {
+                inimigo.receberDano(CONFIG.DANO_BOMBA);
                 coco.ativo = false;
-                this.criarParticulas(coco.x, coco.y, 10); // Efeito de impacto
             }
             
             // Remove cocôs inativos
@@ -332,9 +383,64 @@ class LutadorCoco {
             this.cdPoder--;
         }
     }
+    
+    lancarCoco() {
+        if (this.cdPoder > 0) return;
+        
+        const coco = new CocoProjetil(
+            this.x,
+            this.y - 30,
+            this.dir,
+            this.cor,
+            this.id
+        );
+        
+        this.cocosAtivos.push(coco);
+        this.cdPoder = 60; // 1 segundo de cooldown
+        
+        return coco;
+    }
 
+    // ================= FÍSICA =================
+    fisica() {
+        if (!this.vivo) { 
+            this.y = CONFIG.CHAO + 10; 
+            this.vy = 0;
+            return; 
+        }
+        
+        this.y += this.vy;
+        
+        // Aplica gravidade normal ou descida rápida
+        if (!this.descendoRapido) {
+            this.vy += CONFIG.GRAVIDADE;
+        }
+        
+        // Verifica se bateu no chão
+        if (this.y >= CONFIG.CHAO) {
+            const bateuComForca = this.vy > 10 && this.descendoRapido && this.cargaPoder > 10;
+            
+            this.y = CONFIG.CHAO;
+            this.vy = 0;
+            this.pulando = false;
+            this.descendoRapido = false;
+            this.transformado = false; // Volta ao normal ao tocar o chão
+            
+            // Lança cocô se bateu com força
+            if (bateuComForca && this.cdPoder <= 0) {
+                const coco = this.lancarCoco();
+                return coco; // Retorna o cocô para sincronização
+            }
+            
+            this.cargaPoder = 0;
+        }
+        
+        return null;
+    }
+
+    // ================= DANO =================
     receberDano(v) {
-        if (!this.vivo || jogoTerminou) return;
+        if (!this.vivo) return;
         
         const agora = Date.now();
         if (agora - this.ultimoDano < 500) return;
@@ -344,7 +450,7 @@ class LutadorCoco {
         if (this.vida <= 0) {
             this.vida = 0;
             this.vivo = false;
-            this.y = CHAO + 10;
+            this.y = CONFIG.CHAO + 10;
             this.vy = 0;
         }
         
@@ -352,76 +458,28 @@ class LutadorCoco {
         setTimeout(() => this.olhosAbertos = true, 200);
     }
 
-    fisica() {
-        if (!this.vivo) { 
-            this.y = CHAO + 10; 
-            this.vy = 0;
-            return; 
+    // ================= DESENHO =================
+    desenhar(ctx) {
+        // Atualiza piscar de olhos
+        this.atualizarPiscar();
+        
+        if (!this.vivo) {
+            this.desenharMorto(ctx);
+            return;
         }
         
-        this.y += this.vy;
-        
-        // Aplica gravidade normal ou descida rápida
-        if (!this.descendoRapido) {
-            this.vy += GRAVIDADE;
+        // Desenha transformado ou normal
+        if (this.transformado) {
+            this.desenharTransformado(ctx);
+        } else {
+            this.desenharNormal(ctx);
         }
         
-        // Verifica se bateu no chão durante descida rápida
-        if (this.y >= CHAO) {
-            const bateuComForca = this.vy > 10 && this.descendoRapido && this.cargaPoder > 10;
-            
-            this.y = CHAO;
-            this.vy = 0;
-            this.pulando = false;
-            this.descendoRapido = false;
-            
-            // NOVO: Se bateu no chão com força durante descida rápida, lança cocô!
-            if (bateuComForca && this.cdPoder <= 0) {
-                this.lancarCoco();
-                this.cdPoder = 60; // 1 segundo de cooldown (60 frames)
-                
-                // Efeito de impacto no chão
-                this.criarParticulas(this.x, CHAO, 15);
-            }
-            
-            this.cargaPoder = 0;
-        }
+        // Desenha elementos extras
+        this.desenharExtras(ctx);
     }
     
-    // NOVO: Lançar cocô projetil
-    lancarCoco() {
-        // Determina direção baseada na posição do inimigo (simulação)
-        // Na prática, isso seria sincronizado via Firebase
-        const direcao = this.dir; // Lança na direção que está virado
-        
-        const coco = new CocoProjetil(
-            this.x,
-            this.y - 30, // Lança um pouco acima do chão
-            direcao,
-            this.cor,
-            this.id
-        );
-        
-        this.cocosAtivos.push(coco);
-        
-        // Efeito sonoro visual
-        this.olhosAbertos = false;
-        setTimeout(() => this.olhosAbertos = true, 300);
-        
-        // Envia evento para Firebase
-        enviarCocoLancado(this.id, coco.x, coco.y, direcao);
-    }
-
-    hitbox() {
-        return { 
-            x: this.x - this.tamanho/2, 
-            y: this.y - this.tamanho, 
-            w: this.tamanho, 
-            h: this.tamanho + 20
-        };
-    }
-
-    desenhar() {
+    atualizarPiscar() {
         this.tempoPiscar++;
         if (this.tempoPiscar > 100) {
             this.olhosAbertos = !this.olhosAbertos;
@@ -431,39 +489,154 @@ class LutadorCoco {
             this.olhosAbertos = false;
             setTimeout(() => this.olhosAbertos = true, 100);
         }
-
-        if (!this.vivo) {
-            this.desenharMorto();
-            return;
-        }
-
-        this.desenharVivo();
     }
-
-    desenharVivo() {
-        // CORPO DO COCÔ GRANDE
+    
+    desenharNormal(ctx) {
+        // Corpo do cocô (4 partes)
         ctx.fillStyle = this.cor;
-        const raioBase = this.tamanho/2;
+        const raioBase = this.tamanho / 2;
         
+        // Base
         ctx.beginPath();
         ctx.ellipse(this.x, this.y - 10, raioBase, raioBase * 0.6, 0, 0, Math.PI * 2);
         ctx.fill();
         
+        // Parte média
         ctx.beginPath();
         ctx.ellipse(this.x, this.y - raioBase, raioBase * 0.7, raioBase * 0.5, 0, 0, Math.PI * 2);
         ctx.fill();
         
+        // Parte superior
         ctx.beginPath();
         ctx.ellipse(this.x, this.y - raioBase * 1.5, raioBase * 0.5, raioBase * 0.4, 0, 0, Math.PI * 2);
         ctx.fill();
         
+        // Topo
         ctx.beginPath();
         ctx.ellipse(this.x, this.y - raioBase * 1.8, raioBase * 0.3, raioBase * 0.25, 0, 0, Math.PI * 2);
         ctx.fill();
         
-        // DETALHES DO COCÔ
+        // Detalhes
+        this.desenharDetalhes(ctx, raioBase);
+        
+        // Sapatos
+        this.desenharSapatos(ctx);
+        
+        // Braços
+        this.desenharBracos(ctx);
+        
+        // Face
+        this.desenharFace(ctx);
+    }
+    
+    // NOVO: Desenha transformado em bola
+    desenharTransformado(ctx) {
+        // Desenha como uma bola de cocô
+        const raioBola = this.tamanho * 0.6; // Um pouco menor que o normal
+        
+        // Corpo esférico
+        ctx.fillStyle = this.cor;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y - raioBola, raioBola, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Detalhes da bola
+        ctx.fillStyle = "#8B4513";
+        for(let i = 0; i < 8; i++) {
+            const angulo = (i / 8) * Math.PI * 2;
+            const detalheX = this.x + Math.cos(angulo) * raioBola * 0.7;
+            const detalheY = this.y - raioBola + Math.sin(angulo) * raioBola * 0.7;
+            ctx.beginPath();
+            ctx.arc(detalheX, detalheY, 4, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        
+        // Sapatos (menores e mais próximos)
+        this.desenharSapatosTransformados(ctx, raioBola);
+        
+        // Olhos (sempre abertos durante transformação)
+        this.desenharOlhosTransformados(ctx, raioBola);
+        
+        // Boca (expressão de determinação)
+        this.desenharBocaTransformada(ctx, raioBola);
+        
+        // Efeito de velocidade
+        if (this.descendoRapido) {
+            this.desenharEfeitoVelocidade(ctx);
+        }
+    }
+    
+    desenharSapatosTransformados(ctx, raioBola) {
+        const sapatoY = this.y + 5;
+        const sapatoX1 = this.x - raioBola * 0.4;
+        const sapatoX2 = this.x + raioBola * 0.4;
+        
+        this.desenharSapatoUnico(ctx, sapatoX1, sapatoY, false);
+        this.desenharSapatoUnico(ctx, sapatoX2, sapatoY, false);
+    }
+    
+    desenharOlhosTransformados(ctx, raioBola) {
+        const olhoY = this.y - raioBola * 1.2;
+        
+        // Olhos sempre abertos e grandes durante transformação
+        ctx.fillStyle = "white";
+        ctx.beginPath();
+        ctx.arc(this.x - raioBola * 0.3, olhoY, raioBola * 0.15, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(this.x + raioBola * 0.3, olhoY, raioBola * 0.15, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Pupilas (olhando para baixo durante descida)
+        ctx.fillStyle = "black";
+        const pupilaOffset = this.descendoRapido ? 2 : 0;
+        ctx.beginPath();
+        ctx.arc(this.x - raioBola * 0.3, olhoY + pupilaOffset, raioBola * 0.08, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(this.x + raioBola * 0.3, olhoY + pupilaOffset, raioBola * 0.08, 0, Math.PI * 2);
+        ctx.fill();
+    }
+    
+    desenharBocaTransformada(ctx, raioBola) {
+        const bocaY = this.y - raioBola * 0.8;
+        
+        ctx.strokeStyle = "black";
+        ctx.lineWidth = 3;
+        
+        if (this.descendoRapido) {
+            // Boca determinada durante descida
+            ctx.beginPath();
+            ctx.arc(this.x, bocaY, raioBola * 0.2, 0.1, Math.PI - 0.1);
+            ctx.stroke();
+        } else {
+            // Boca normal
+            ctx.beginPath();
+            ctx.arc(this.x, bocaY, raioBola * 0.25, 0.2, Math.PI - 0.2);
+            ctx.stroke();
+        }
+    }
+    
+    desenharEfeitoVelocidade(ctx) {
+        // Linhas de velocidade
+        ctx.strokeStyle = "rgba(255, 255, 0, 0.7)";
+        ctx.lineWidth = 2;
+        ctx.setLineDash([5, 3]);
+        
+        for(let i = 0; i < 3; i++) {
+            ctx.beginPath();
+            ctx.moveTo(this.x - 20 + i * 10, this.y + 30);
+            ctx.lineTo(this.x - 50 + i * 10, this.y + 50);
+            ctx.stroke();
+        }
+        
+        ctx.setLineDash([]);
+    }
+    
+    desenharDetalhes(ctx, raioBase) {
         ctx.fillStyle = "#8B4513";
         
+        // Detalhes na base
         for(let i = 0; i < 7; i++) {
             const angulo = (i / 7) * Math.PI * 2;
             const detalheX = this.x + Math.cos(angulo) * raioBase * 0.7;
@@ -472,147 +645,51 @@ class LutadorCoco {
             ctx.ellipse(detalheX, detalheY, 4, 3, 0, 0, Math.PI * 2);
             ctx.fill();
         }
-        
-        for(let i = 0; i < 5; i++) {
-            const angulo = (i / 5) * Math.PI * 2;
-            const detalheX = this.x + Math.cos(angulo) * raioBase * 0.5;
-            const detalheY = this.y - raioBase + Math.sin(angulo) * raioBase * 0.3;
-            ctx.beginPath();
-            ctx.ellipse(detalheX, detalheY, 4, 3, 0, 0, Math.PI * 2);
-            ctx.fill();
-        }
-        
-        for(let i = 0; i < 3; i++) {
-            const angulo = (i / 3) * Math.PI * 2;
-            const detalheX = this.x + Math.cos(angulo) * raioBase * 0.3;
-            const detalheY = this.y - raioBase * 1.5 + Math.sin(angulo) * raioBase * 0.2;
-            ctx.beginPath();
-            ctx.ellipse(detalheX, detalheY, 3, 2, 0, 0, Math.PI * 2);
-            ctx.fill();
-        }
-
-        // SAPATOS
-        this.desenharSapatos();
-        
-        // BRAÇOS
-        this.desenharBracos();
-        
-        // OLHOS
-        this.desenharOlhos();
-        
-        // BOCA
-        this.desenharBoca();
-        
-        // NOVO: Desenha cocôs ativos
-        this.desenharCocosAtivos();
-        
-        // NOVO: Indicador de poder carregando
-        if (this.descendoRapido && this.cargaPoder > 0) {
-            this.desenharIndicadorPoder();
-        }
-        
-        // NOVO: Indicador de cooldown
-        if (this.cdPoder > 0) {
-            this.desenharCooldown();
-        }
     }
     
-    // NOVO: Desenha cocôs ativos
-    desenharCocosAtivos() {
-        for (const coco of this.cocosAtivos) {
-            coco.desenhar();
-        }
-    }
-    
-    // NOVO: Desenha indicador de poder carregando
-    desenharIndicadorPoder() {
-        const porcentagem = Math.min(this.cargaPoder / this.maxCarga, 1);
-        const barraWidth = 40;
-        const barraHeight = 6;
-        const x = this.x - barraWidth / 2;
-        const y = this.y - this.tamanho - 30;
-        
-        // Fundo da barra
-        ctx.fillStyle = "#333";
-        ctx.fillRect(x, y, barraWidth, barraHeight);
-        
-        // Barra de carga
-        ctx.fillStyle = porcentagem >= 1 ? "#ff00ff" : "#00ff00";
-        ctx.fillRect(x, y, barraWidth * porcentagem, barraHeight);
-        
-        // Borda
-        ctx.strokeStyle = "white";
-        ctx.lineWidth = 1;
-        ctx.strokeRect(x, y, barraWidth, barraHeight);
-        
-        // Texto
-        ctx.fillStyle = "white";
-        ctx.font = "10px Arial";
-        ctx.textAlign = "center";
-        ctx.fillText("BOMBA!", this.x, y - 5);
-    }
-    
-    // NOVO: Desenha indicador de cooldown
-    desenharCooldown() {
-        const porcentagem = this.cdPoder / 60;
-        const raio = 15;
-        const x = this.x;
-        const y = this.y - this.tamanho - 50;
-        
-        // Círculo de cooldown
-        ctx.strokeStyle = "#ff4444";
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        ctx.arc(x, y, raio, -Math.PI/2, (-Math.PI/2) + (Math.PI * 2 * (1 - porcentagem)), true);
-        ctx.stroke();
-        
-        // Texto
-        ctx.fillStyle = "white";
-        ctx.font = "10px Arial";
-        ctx.textAlign = "center";
-        ctx.fillText(Math.ceil(this.cdPoder / 60 * 10) + "s", x, y + 3);
-    }
-
-    desenharSapatos() {
+    desenharSapatos(ctx) {
         if (this.chutando) {
-            this.desenharSapato(this.sapatoX, this.sapatoY, true);
-            
+            this.desenharSapatoUnico(ctx, this.sapatoX, this.sapatoY, true);
             const sapatoNormalX = this.x + (this.dir > 0 ? -15 : 15);
-            this.desenharSapato(sapatoNormalX, this.y + 15, false);
+            this.desenharSapatoUnico(ctx, sapatoNormalX, this.y + 15, false);
         } else {
             const sapatoEsqX = this.x - 15;
             const sapatoDirX = this.x + 15;
             
             if (this.pulando) {
-                this.desenharSapato(sapatoEsqX + 5, this.y + 5, false);
-                this.desenharSapato(sapatoDirX - 5, this.y + 5, false);
+                this.desenharSapatoUnico(ctx, sapatoEsqX + 5, this.y + 5, false);
+                this.desenharSapatoUnico(ctx, sapatoDirX - 5, this.y + 5, false);
             } else {
-                this.desenharSapato(sapatoEsqX, this.y + 15, false);
-                this.desenharSapato(sapatoDirX, this.y + 15, false);
+                this.desenharSapatoUnico(ctx, sapatoEsqX, this.y + 15, false);
+                this.desenharSapatoUnico(ctx, sapatoDirX, this.y + 15, false);
             }
         }
     }
-
-    desenharSapato(x, y, chutando) {
-        const tamanhoSapato = chutando ? 25 : 20;
-        const alturaSapato = chutando ? 12 : 10;
+    
+    desenharSapatoUnico(ctx, x, y, chutando) {
+        const tamanho = chutando ? 25 : 20;
+        const altura = chutando ? 12 : 10;
         
+        // Sapato
         ctx.fillStyle = this.corSapato;
         ctx.beginPath();
-        ctx.ellipse(x, y, tamanhoSapato, alturaSapato, 0, 0, Math.PI * 2);
+        ctx.ellipse(x, y, tamanho, altura, 0, 0, Math.PI * 2);
         ctx.fill();
         
+        // Detalhe
         const corDetalhe = this.corSapato === "cyan" ? "#00aaff" : "#ff4444";
         ctx.fillStyle = corDetalhe;
         ctx.beginPath();
-        ctx.ellipse(x + (this.dir > 0 ? 8 : -8), y, tamanhoSapato * 0.6, alturaSapato * 0.7, 0, 0, Math.PI * 2);
+        ctx.ellipse(x + (this.dir > 0 ? 8 : -8), y, tamanho * 0.6, altura * 0.7, 0, 0, Math.PI * 2);
         ctx.fill();
         
+        // Sola
         ctx.fillStyle = "#333";
         ctx.beginPath();
-        ctx.ellipse(x, y + alturaSapato - 2, tamanhoSapato * 0.9, 3, 0, 0, Math.PI * 2);
+        ctx.ellipse(x, y + altura - 2, tamanho * 0.9, 3, 0, 0, Math.PI * 2);
         ctx.fill();
         
+        // Efeito de chute
         if (chutando) {
             ctx.strokeStyle = "yellow";
             ctx.lineWidth = 2;
@@ -626,12 +703,13 @@ class LutadorCoco {
             ctx.setLineDash([]);
         }
     }
-
-    desenharBracos() {
+    
+    desenharBracos(ctx) {
         ctx.strokeStyle = this.cor;
         ctx.lineWidth = 10;
         
         if (this.atacando) {
+            // Braço atacante
             const bracoX = this.x + this.dir * 60;
             const bracoY = this.y - 40;
             
@@ -640,49 +718,55 @@ class LutadorCoco {
             ctx.lineTo(bracoX, bracoY);
             ctx.stroke();
             
+            // Punho
             ctx.fillStyle = this.cor;
             ctx.beginPath();
             ctx.arc(bracoX, bracoY, 15, 0, Math.PI * 2);
             ctx.fill();
             
+            // Outro braço
             ctx.beginPath();
             ctx.moveTo(this.x - this.dir * 20, this.y - 40);
             ctx.lineTo(this.x - this.dir * 45, this.y - 35);
             ctx.stroke();
         } else {
+            // Braços normais
+            const offsetPulo = this.pulando ? -15 : 0;
             ctx.beginPath();
             ctx.moveTo(this.x - 20, this.y - 40);
-            ctx.lineTo(this.x - 50, this.y - 30 + (this.pulando ? -15 : 0));
+            ctx.lineTo(this.x - 50, this.y - 30 + offsetPulo);
             ctx.stroke();
             
             ctx.beginPath();
             ctx.moveTo(this.x + 20, this.y - 40);
-            ctx.lineTo(this.x + 50, this.y - 30 + (this.pulando ? -15 : 0));
+            ctx.lineTo(this.x + 50, this.y - 30 + offsetPulo);
             ctx.stroke();
         }
     }
-
-    desenharOlhos() {
-        const olgoY = this.y - this.tamanho * 0.9;
+    
+    desenharFace(ctx) {
+        this.desenharOlhos(ctx);
+        this.desenharBoca(ctx);
+    }
+    
+    desenharOlhos(ctx) {
+        const olhoY = this.y - this.tamanho * 0.9;
         
         if (this.olhosAbertos) {
+            // Olhos brancos
             ctx.fillStyle = "white";
             ctx.beginPath();
-            ctx.arc(this.x - 15, olgoY, 8, 0, Math.PI * 2);
+            ctx.arc(this.x - 15, olhoY, 8, 0, Math.PI * 2);
             ctx.fill();
             ctx.beginPath();
             ctx.arc(this.x + 15, olgoY, 8, 0, Math.PI * 2);
             ctx.fill();
             
+            // Pupilas
             ctx.fillStyle = "black";
-            let pupilaX = 0;
-            if (this.atacando || this.chutando || this.descendoRapido) {
-                pupilaX = this.dir * 4;
-            } else if (this.pulando) {
-                pupilaX = 0;
-            } else {
-                pupilaX = this.dir * 2;
-            }
+            let pupilaX = this.dir * 2;
+            if (this.atacando || this.chutando) pupilaX = this.dir * 4;
+            if (this.pulando) pupilaX = 0;
             
             ctx.beginPath();
             ctx.arc(this.x - 15 + pupilaX, olgoY, 4, 0, Math.PI * 2);
@@ -691,6 +775,7 @@ class LutadorCoco {
             ctx.arc(this.x + 15 + pupilaX, olgoY, 4, 0, Math.PI * 2);
             ctx.fill();
             
+            // Brilho
             ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
             ctx.beginPath();
             ctx.arc(this.x - 15 + pupilaX - 2, olgoY - 2, 2, 0, Math.PI * 2);
@@ -699,6 +784,7 @@ class LutadorCoco {
             ctx.arc(this.x + 15 + pupilaX - 2, olgoY - 2, 2, 0, Math.PI * 2);
             ctx.fill();
         } else {
+            // Olhos fechados
             ctx.strokeStyle = "black";
             ctx.lineWidth = 4;
             ctx.beginPath();
@@ -711,11 +797,11 @@ class LutadorCoco {
             ctx.stroke();
         }
     }
-
-    desenharBoca() {
+    
+    desenharBoca(ctx) {
+        const bocaY = this.y - this.tamanho * 0.7;
         ctx.strokeStyle = "black";
         ctx.lineWidth = 4;
-        const bocaY = this.y - this.tamanho * 0.7;
         
         if (this.atacando) {
             ctx.beginPath();
@@ -734,30 +820,77 @@ class LutadorCoco {
             ctx.beginPath();
             ctx.arc(this.x, bocaY, 8, 0, Math.PI * 2);
             ctx.stroke();
-        } else if (this.descendoRapido) {
-            // Boca de esforço durante descida
-            ctx.beginPath();
-            ctx.moveTo(this.x - 8, bocaY);
-            ctx.lineTo(this.x + 8, bocaY);
-            ctx.lineTo(this.x + 4, bocaY + 6);
-            ctx.lineTo(this.x - 4, bocaY + 6);
-            ctx.closePath();
-            ctx.stroke();
         } else {
             ctx.beginPath();
             ctx.arc(this.x, bocaY, 10, 0.2, Math.PI - 0.2);
             ctx.stroke();
         }
     }
-
-    desenharMorto() {
+    
+    desenharExtras(ctx) {
+        // Desenha cocôs ativos
+        for (const coco of this.cocosAtivos) {
+            coco.desenhar(ctx);
+        }
+        
+        // Indicador de carregamento
+        if (this.descendoRapido && this.cargaPoder > 0) {
+            this.desenharIndicadorPoder(ctx);
+        }
+        
+        // Indicador de cooldown
+        if (this.cdPoder > 0) {
+            this.desenharCooldown(ctx);
+        }
+    }
+    
+    desenharIndicadorPoder(ctx) {
+        const porcentagem = Math.min(this.cargaPoder / this.maxCarga, 1);
+        const largura = 40;
+        const altura = 6;
+        const x = this.x - largura / 2;
+        const y = this.y - this.tamanho - 30;
+        
+        // Barra
+        Utils.desenharBarra(ctx, x, y, largura, altura, this.cargaPoder, this.maxCarga, "#333", porcentagem >= 1 ? "#ff00ff" : "#00ff00");
+        
+        // Texto
+        ctx.fillStyle = "white";
+        ctx.font = "10px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText("BOMBA!", this.x, y - 5);
+    }
+    
+    desenharCooldown(ctx) {
+        const porcentagem = this.cdPoder / 60;
+        const raio = 15;
+        const x = this.x;
+        const y = this.y - this.tamanho - 50;
+        
+        // Círculo
+        ctx.strokeStyle = "#ff4444";
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(x, y, raio, -Math.PI/2, (-Math.PI/2) + (Math.PI * 2 * (1 - porcentagem)), true);
+        ctx.stroke();
+        
+        // Texto
+        ctx.fillStyle = "white";
+        ctx.font = "10px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText(Math.ceil(this.cdPoder / 60 * 10) + "s", x, y + 3);
+    }
+    
+    desenharMorto(ctx) {
+        // Corpo achatado
         ctx.fillStyle = this.cor;
-        const raioMorto = this.tamanho/2;
+        const raioMorto = this.tamanho / 2;
         
         ctx.beginPath();
         ctx.ellipse(this.x, this.y - 10, raioMorto, raioMorto * 0.4, 0, 0, Math.PI * 2);
         ctx.fill();
         
+        // Detalhes
         ctx.fillStyle = "#8B4513";
         for(let i = 0; i < 5; i++) {
             ctx.beginPath();
@@ -765,350 +898,369 @@ class LutadorCoco {
             ctx.fill();
         }
         
-        this.desenharSapato(this.x - 25, this.y + 25, false);
-        this.desenharSapato(this.x + 25, this.y + 25, false);
+        // Sapatos caídos
+        this.desenharSapatoUnico(ctx, this.x - 25, this.y + 25, false);
+        this.desenharSapatoUnico(ctx, this.x + 25, this.y + 25, false);
         
+        // Olhos em X
         ctx.strokeStyle = "black";
         ctx.lineWidth = 4;
         const olgoY = this.y - this.tamanho * 0.6;
         
-        ctx.beginPath();
-        ctx.moveTo(this.x - 20, olgoY - 5);
-        ctx.lineTo(this.x - 10, olgoY + 5);
-        ctx.stroke();
-        ctx.beginPath();
-            ctx.moveTo(this.x - 10, olgoY - 5);
-            ctx.lineTo(this.x - 20, olgoY + 5);
+        for(let i = 0; i < 2; i++) {
+            const offset = i * 20;
+            ctx.beginPath();
+            ctx.moveTo(this.x - 20 + offset, olgoY - 5);
+            ctx.lineTo(this.x - 10 + offset, olgoY + 5);
             ctx.stroke();
-        
-        ctx.beginPath();
-        ctx.moveTo(this.x + 10, olgoY - 5);
-        ctx.lineTo(this.x + 20, olgoY + 5);
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.moveTo(this.x + 20, olgoY - 5);
-        ctx.lineTo(this.x + 10, olgoY + 5);
-        ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(this.x - 10 + offset, olgoY - 5);
+            ctx.lineTo(this.x - 20 + offset, olgoY + 5);
+            ctx.stroke();
+        }
     }
 
+    // ================= UTILIDADES =================
+    hitbox() {
+        return { 
+            x: this.x - this.tamanho/2, 
+            y: this.y - this.tamanho, 
+            w: this.tamanho, 
+            h: this.tamanho + 20
+        };
+    }
+    
     reset() {
         this.x = this.inicialX;
-        this.y = CHAO;
+        this.y = CONFIG.CHAO;
         this.vy = 0;
         this.vida = 100;
         this.vivo = true;
+        
+        // Estados
+        this.pulando = false;
         this.atacando = false;
         this.chutando = false;
+        this.descendoRapido = false;
+        this.transformado = false;
+        
+        // Temporizadores
         this.tempoAtaque = 0;
         this.tempoChute = 0;
-        this.ultimoDano = 0;
+        this.tempoTransformacao = 0;
+        
+        // Outros
         this.olhosAbertos = true;
         this.tempoPiscar = 0;
         this.sapatoX = 0;
         this.sapatoY = 0;
-        
-        // NOVO: Resetar sistema de poder
-        this.descendoRapido = false;
         this.cdPoder = 0;
         this.cocosAtivos = [];
         this.cargaPoder = 0;
     }
 }
 
-/* ================= UTILS ================= */
-function colisao(a,b){
-    return a.x < b.x+b.w && a.x+a.w > b.x && a.y < b.y+b.h && a.y+a.h > b.y;
-}
-
-/* ================= INPUT ================= */
-const keys = {};
-addEventListener("keydown",e=>keys[e.key]=true);
-addEventListener("keyup",e=>keys[e.key]=false);
-
-/* ================= PLAYERS ================= */
-const p1 = new LutadorCoco(250,"#8B7355","cyan",{esq:"a",dir:"d",pulo:"w",atk:"f"},1,"p1");
-const p2 = new LutadorCoco(650,"#8B7355","red",{esq:"ArrowLeft",dir:"ArrowRight",pulo:"ArrowUp",atk:"Enter"},-1,"p2");
-
-/* ================= FIREBASE SYNC ================= */
-// Sistema de sincronização simplificado
-
-function enviarDados() {
-    // Só envia dados se o jogo não terminou
-    if (jogoTerminou) return;
-    
-    const jogador = meuId === "p1" ? p1 : p2;
-    
-    // Envia dados básicos do jogador
-    db.ref("jogo/"+meuId).set({
-        x: jogador.x,
-        y: jogador.y,
-        vida: jogador.vida,
-        dir: jogador.dir,
-        atacando: jogador.atacando,
-        chutando: jogador.chutando,
-        vivo: jogador.vivo,
-        pulando: jogador.pulando,
-        sapatoX: jogador.sapatoX,
-        sapatoY: jogador.sapatoY,
-        olhosAbertos: jogador.olhosAbertos,
-        descendoRapido: jogador.descendoRapido,
-        cdPoder: jogador.cdPoder,
-        cargaPoder: jogador.cargaPoder
-    });
-}
-
-// NOVO: Envia quando lança um cocô
-function enviarCocoLancado(jogadorId, x, y, direcao) {
-    if (jogoTerminou) return;
-    
-    db.ref("cocoLancado").set({
-        jogador: jogadorId,
-        x: x,
-        y: y,
-        direcao: direcao,
-        tempo: Date.now()
-    });
-}
-
-// Recebe dados do inimigo
-db.ref("jogo/"+inimigoId).on("value", s => {
-    const dados = s.val();
-    if (!dados) return;
-    
-    const inimigo = inimigoId === "p1" ? p1 : p2;
-    
-    // Atualiza dados básicos
-    inimigo.x = dados.x || inimigo.x;
-    inimigo.y = dados.y || inimigo.y;
-    inimigo.dir = dados.dir || inimigo.dir;
-    inimigo.atacando = dados.atacando || false;
-    inimigo.chutando = dados.chutando || false;
-    inimigo.pulando = dados.pulando || false;
-    inimigo.sapatoX = dados.sapatoX || 0;
-    inimigo.sapatoY = dados.sapatoY || 0;
-    inimigo.olhosAbertos = dados.olhosAbertos !== undefined ? dados.olhosAbertos : inimigo.olhosAbertos;
-    inimigo.descendoRapido = dados.descendoRapido || false;
-    inimigo.cdPoder = dados.cdPoder || 0;
-    inimigo.cargaPoder = dados.cargaPoder || 0;
-    
-    // Atualiza vida (só se for menor, para não regenerar)
-    if (dados.vida !== undefined && dados.vida < inimigo.vida) {
-        inimigo.vida = dados.vida;
+// ================= MÓDULO: GAME MANAGER =================
+class GameManager {
+    constructor() {
+        this.canvas = document.getElementById("game");
+        this.ctx = this.canvas.getContext("2d");
+        this.fundo = new Image();
+        this.fundo.src = "imagens/fundo.png";
+        
+        // Estado do jogo
+        this.jogoTerminou = false;
+        this.meuId = null;
+        this.inimigoId = null;
+        
+        // Jogadores
+        this.p1 = null;
+        this.p2 = null;
+        
+        // Input
+        this.keys = {};
+        this.setupInput();
     }
     
-    // Atualiza estado de vida
-    if (dados.vivo !== undefined) {
-        inimigo.vivo = dados.vivo;
-        if (!dados.vivo) {
-            inimigo.vida = 0;
-        }
+    setupInput() {
+        addEventListener("keydown", e => this.keys[e.key] = true);
+        addEventListener("keyup", e => this.keys[e.key] = false);
     }
-});
-
-// NOVO: Escuta por cocôs lançados
-db.ref("cocoLancado").on("value", s => {
-    const dados = s.val();
-    if (!dados || dados.jogador === meuId || jogoTerminou) return;
     
-    const jogador = dados.jogador === "p1" ? p1 : p2;
-    
-    // Cria o cocô projetil localmente
-    const coco = new CocoProjetil(
-        dados.x,
-        dados.y,
-        dados.direcao,
-        jogador.cor,
-        dados.jogador
-    );
-    
-    // Adiciona à lista de cocôs do jogador
-    jogador.cocosAtivos.push(coco);
-});
-
-// Sistema de reinício
-db.ref("reinicio").on("value", s => {
-    const dados = s.val();
-    if (dados) {
-        reiniciarJogo();
+    inicializar() {
+        const meuPlayer = prompt("Digite 1 para Player 1 ou 2 para Player 2");
+        this.meuId = meuPlayer === "1" ? "p1" : "p2";
+        this.inimigoId = this.meuId === "p1" ? "p2" : "p1";
+        
+        // Criar jogadores
+        this.p1 = new LutadorCoco(
+            250, 
+            "#8B7355", 
+            "cyan", 
+            {esq: "a", dir: "d", pulo: "w", atk: "f"}, 
+            1, 
+            "p1"
+        );
+        
+        this.p2 = new LutadorCoco(
+            650, 
+            "#8B7355", 
+            "red", 
+            {esq: "ArrowLeft", dir: "ArrowRight", pulo: "ArrowUp", atk: "Enter"}, 
+            -1, 
+            "p2"
+        );
+        
+        // Configurar Firebase
+        this.setupFirebase();
+        
+        // Iniciar loop
+        this.fundo.onload = () => this.loop();
     }
-});
-
-function reiniciarJogo() {
-    p1.reset();
-    p2.reset();
-    jogoTerminou = false;
     
-    // Atualiza Firebase com os novos dados
-    enviarDados();
-    
-    // Força atualização do inimigo também
-    setTimeout(() => {
-        db.ref("jogo").set({
-            p1: {
-                x: p1.x,
-                y: p1.y,
-                vida: p1.vida,
-                dir: p1.dir,
-                atacando: false,
-                chutando: false,
-                vivo: true,
-                pulando: false,
-                sapatoX: 0,
-                sapatoY: 0,
-                olhosAbertos: true,
-                descendoRapido: false,
-                cdPoder: 0,
-                cargaPoder: 0
-            },
-            p2: {
-                x: p2.x,
-                y: p2.y,
-                vida: p2.vida,
-                dir: p2.dir,
-                atacando: false,
-                chutando: false,
-                vivo: true,
-                pulando: false,
-                sapatoX: 0,
-                sapatoY: 0,
-                olhosAbertos: true,
-                descendoRapido: false,
-                cdPoder: 0,
-                cargaPoder: 0
+    setupFirebase() {
+        // Enviar dados
+        this.enviarDados = () => {
+            if (this.jogoTerminou) return;
+            
+            const jogador = this.meuId === "p1" ? this.p1 : this.p2;
+            
+            db.ref("jogo/" + this.meuId).set({
+                x: jogador.x,
+                y: jogador.y,
+                vida: jogador.vida,
+                dir: jogador.dir,
+                atacando: jogador.atacando,
+                chutando: jogador.chutando,
+                vivo: jogador.vivo,
+                pulando: jogador.pulando,
+                sapatoX: jogador.sapatoX,
+                sapatoY: jogador.sapatoY,
+                olhosAbertos: jogador.olhosAbertos,
+                descendoRapido: jogador.descendoRapido,
+                transformado: jogador.transformado,
+                cdPoder: jogador.cdPoder,
+                cargaPoder: jogador.cargaPoder
+            });
+        };
+        
+        // Receber dados do inimigo
+        db.ref("jogo/" + this.inimigoId).on("value", s => {
+            const dados = s.val();
+            if (!dados) return;
+            
+            const inimigo = this.inimigoId === "p1" ? this.p1 : this.p2;
+            
+            // Atualizar dados básicos
+            Object.assign(inimigo, {
+                x: dados.x,
+                y: dados.y,
+                dir: dados.dir,
+                atacando: dados.atacando,
+                chutando: dados.chutando,
+                pulando: dados.pulando,
+                sapatoX: dados.sapatoX,
+                sapatoY: dados.sapatoY,
+                olhosAbertos: dados.olhosAbertos,
+                descendoRapido: dados.descendoRapido,
+                transformado: dados.transformado,
+                cdPoder: dados.cdPoder,
+                cargaPoder: dados.cargaPoder
+            });
+            
+            // Vida
+            if (dados.vida !== undefined && dados.vida < inimigo.vida) {
+                inimigo.vida = dados.vida;
+            }
+            
+            // Estado de vida
+            if (dados.vivo !== undefined) {
+                inimigo.vivo = dados.vivo;
+                if (!dados.vivo) inimigo.vida = 0;
             }
         });
         
-        // Limpa cocôs lançados
-        db.ref("cocoLancado").remove();
-    }, 100);
-}
-
-/* ================= UI ================= */
-function barras(){
-    // Barra de vida P1
-    ctx.fillStyle = "#333";
-    ctx.fillRect(50, 20, 200, 25);
-    ctx.fillStyle = "cyan";
-    ctx.fillRect(50, 20, p1.vida*2, 25);
-    
-    // Barra de vida P2
-    ctx.fillStyle = "#333";
-    ctx.fillRect(650, 20, 200, 25);
-    ctx.fillStyle = "red";
-    ctx.fillRect(650, 20, p2.vida*2, 25);
-    
-    // Texto de vida
-    ctx.fillStyle = "white";
-    ctx.font = "16px Arial";
-    ctx.fillText(`P1: ${p1.vida}`, 50, 50);
-    ctx.fillText(`P2: ${p2.vida}`, 650, 50);
-    
-    // Controles
-    ctx.font = "14px Arial";
-    ctx.fillText("Soco: F | Chute: C | Bomba: W+S", 50, 70);
-    ctx.fillText("Soco: Enter | Chute: . | Bomba: ↑+↓", 650, 70);
-    
-    // Instrução do poder
-    ctx.font = "12px Arial";
-    ctx.fillText("Pular + Baixo no ar = Bomba de Cocô!", 350, 390);
-    
-    // Bordas
-    ctx.strokeStyle = "white";
-    ctx.lineWidth = 3;
-    ctx.strokeRect(50, 20, 200, 25);
-    ctx.strokeRect(650, 20, 200, 25);
-}
-
-function desenharTelaFim() {
-    // Overlay semi-transparente
-    ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    
-    // Texto do vencedor
-    ctx.fillStyle = "white";
-    ctx.font = "32px Arial";
-    ctx.textAlign = "center";
-    
-    const vencedor = p1.vivo ? "Player 1 VENCEU! 💩👑" : "Player 2 VENCEU! 💩👑";
-    ctx.fillText(vencedor, canvas.width / 2, 150);
-    
-    // Instrução para reiniciar
-    ctx.font = "24px Arial";
-    ctx.fillText("Pressione R para jogar novamente", canvas.width / 2, 200);
-    
-    ctx.font = "18px Arial";
-    ctx.fillText("Ambos os jogadores precisam pressionar R", canvas.width / 2, 240);
-}
-
-/* ================= LOOP ================= */
-function loop(){
-    ctx.clearRect(0,0,900,400);
-    ctx.drawImage(fundo,0,CHAO-40,900,180);
-
-    barras();
-
-    const jogadorLocal = meuId === "p1" ? p1 : p2;
-    const inimigoLocal = meuId === "p1" ? p2 : p1;
-    
-    // Verifica se o jogo terminou
-    if (!p1.vivo || !p2.vivo) {
-        jogoTerminou = true;
+        // Cocôs lançados
+        db.ref("cocoLancado").on("value", s => {
+            const dados = s.val();
+            if (!dados || dados.jogador === this.meuId || this.jogoTerminou) return;
+            
+            const jogador = dados.jogador === "p1" ? this.p1 : this.p2;
+            const coco = new CocoProjetil(dados.x, dados.y, dados.direcao, jogador.cor, dados.jogador);
+            jogador.cocosAtivos.push(coco);
+        });
+        
+        // Reinício
+        db.ref("reinicio").on("value", s => {
+            const dados = s.val();
+            if (dados) this.reiniciarJogo();
+        });
     }
     
-    // Controles só funcionam se o jogo não terminou
-    if (!jogoTerminou) {
-        if (jogadorLocal.vivo) {
-            jogadorLocal.mover(keys);
-            jogadorLocal.pular(keys);
-            jogadorLocal.atacar(keys, inimigoLocal);
-            jogadorLocal.fisica();
+    reiniciarJogo() {
+        this.p1.reset();
+        this.p2.reset();
+        this.jogoTerminou = false;
+        
+        this.enviarDados();
+        
+        setTimeout(() => {
+            db.ref("jogo").set({
+                p1: this.getDadosJogador(this.p1),
+                p2: this.getDadosJogador(this.p2)
+            });
+            db.ref("cocoLancado").remove();
+        }, 100);
+    }
+    
+    getDadosJogador(jogador) {
+        return {
+            x: jogador.x,
+            y: jogador.y,
+            vida: jogador.vida,
+            dir: jogador.dir,
+            atacando: false,
+            chutando: false,
+            vivo: true,
+            pulando: false,
+            sapatoX: 0,
+            sapatoY: 0,
+            olhosAbertos: true,
+            descendoRapido: false,
+            transformado: false,
+            cdPoder: 0,
+            cargaPoder: 0
+        };
+    }
+    
+    // ================= UI =================
+    desenharBarrasVida() {
+        // P1
+        Utils.desenharBarra(this.ctx, 50, 20, 200, 25, this.p1.vida, 100, "#333", "cyan");
+        // P2
+        Utils.desenharBarra(this.ctx, 650, 20, 200, 25, this.p2.vida, 100, "#333", "red");
+        
+        // Texto
+        this.ctx.fillStyle = "white";
+        this.ctx.font = "16px Arial";
+        this.ctx.fillText(`P1: ${this.p1.vida}`, 50, 50);
+        this.ctx.fillText(`P2: ${this.p2.vida}`, 650, 50);
+        
+        // Controles
+        this.ctx.font = "14px Arial";
+        this.ctx.fillText("Soco: F | Chute: C | Bomba: W+S", 50, 70);
+        this.ctx.fillText("Soco: Enter | Chute: . | Bomba: ↑+↓", 650, 70);
+        
+        this.ctx.font = "12px Arial";
+        this.ctx.textAlign = "center";
+        this.ctx.fillText("Pular + Baixo no ar = Transformação + Bomba de Cocô!", 450, 390);
+    }
+    
+    desenharTelaFim() {
+        // Overlay
+        this.ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        
+        // Texto
+        this.ctx.fillStyle = "white";
+        this.ctx.font = "32px Arial";
+        this.ctx.textAlign = "center";
+        
+        const vencedor = this.p1.vivo ? "Player 1 VENCEU! 💩👑" : "Player 2 VENCEU! 💩👑";
+        this.ctx.fillText(vencedor, this.canvas.width / 2, 150);
+        
+        this.ctx.font = "24px Arial";
+        this.ctx.fillText("Pressione R para jogar novamente", this.canvas.width / 2, 200);
+        
+        this.ctx.font = "18px Arial";
+        this.ctx.fillText("Ambos os jogadores precisam pressionar R", this.canvas.width / 2, 240);
+    }
+    
+    // ================= LOOP PRINCIPAL =================
+    loop() {
+        // Limpar
+        this.ctx.clearRect(0, 0, 900, 400);
+        this.ctx.drawImage(this.fundo, 0, CONFIG.CHAO - 40, 900, 180);
+        
+        // Desenhar UI
+        this.desenharBarrasVida();
+        
+        // Verificar fim do jogo
+        if (!this.p1.vivo || !this.p2.vivo) {
+            this.jogoTerminou = true;
         }
         
-        // Atualiza cocôs ativos do jogador local
-        jogadorLocal.atualizarCocos(inimigoLocal);
+        // Lógica do jogo
+        if (!this.jogoTerminou) {
+            this.atualizarJogo();
+        }
         
-        // Atualiza cocôs ativos do inimigo
-        inimigoLocal.atualizarCocos(jogadorLocal);
+        // Desenhar personagens
+        this.p1.desenhar(this.ctx);
+        this.p2.desenhar(this.ctx);
         
-        inimigoLocal.fisica();
+        // Tela de fim
+        if (this.jogoTerminou) {
+            this.desenharTelaFim();
+            this.verificarReinicio();
+        }
         
-        // Envia dados para Firebase
-        enviarDados();
+        requestAnimationFrame(() => this.loop());
     }
     
-    // Desenha os personagens
-    p1.desenhar();
-    p2.desenhar();
-    
-    // Se o jogo terminou, mostra tela de fim
-    if (jogoTerminou) {
-        desenharTelaFim();
+    atualizarJogo() {
+        const jogador = this.meuId === "p1" ? this.p1 : this.p2;
+        const inimigo = this.meuId === "p1" ? this.p2 : this.p1;
         
-        // Sistema de reinício
-        if (keys["r"] || keys["R"]) {
-            // Envia sinal para reiniciar
+        // Controles do jogador local
+        if (jogador.vivo) {
+            jogador.mover(this.keys, this.jogoTerminou);
+            jogador.pular(this.keys, this.jogoTerminou);
+            jogador.atacar(this.keys, inimigo, this.jogoTerminou);
+            
+            // Física e verificar lançamento de cocô
+            const cocoLancado = jogador.fisica();
+            if (cocoLancado) {
+                db.ref("cocoLancado").set({
+                    jogador: jogador.id,
+                    x: cocoLancado.x,
+                    y: cocoLancado.y,
+                    direcao: cocoLancado.direcao,
+                    tempo: Date.now()
+                });
+            }
+        }
+        
+        // Atualizar cocôs
+        jogador.atualizarCocos(inimigo);
+        inimigo.atualizarCocos(jogador);
+        
+        // Física do inimigo
+        inimigo.fisica();
+        
+        // Enviar dados
+        this.enviarDados();
+    }
+    
+    verificarReinicio() {
+        if (this.keys["r"] || this.keys["R"]) {
             db.ref("reinicio").set({
                 tempo: Date.now(),
-                jogador: meuId
+                jogador: this.meuId
             });
             
-            // Reinicia localmente
-            reiniciarJogo();
+            this.reiniciarJogo();
             
-            // Limpa o sinal de reinício depois de um tempo
             setTimeout(() => {
                 db.ref("reinicio").remove();
             }, 1000);
         }
     }
-
-    requestAnimationFrame(loop);
 }
 
-// Inicializa o Firebase com dados iniciais
-reiniciarJogo();
-
-fundo.onload = loop;
+// ================= INICIALIZAR JOGO =================
+const game = new GameManager();
+game.inicializar();
 </script>
 </body>
 </html>
