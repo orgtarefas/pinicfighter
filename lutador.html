@@ -1,0 +1,619 @@
+<script>
+// Continuação da classe LutadorCoco (parte 2)
+    ativarDescidaRapida() {
+        this.descendoRapido = true;
+        this.transformado = true;
+        this.tempoTransformacao = 10;
+        this.vy = CONFIG.VELOCIDADE_DESCIDA;
+        this.cargaPoder++;
+        this.olhosAbertos = true;
+    }
+    
+    desativarDescidaRapida() {
+        this.descendoRapido = false;
+        this.cargaPoder = 0;
+    }
+
+    atacar(keys, inimigo, jogoTerminou) {
+        if (!this.vivo || !inimigo.vivo || jogoTerminou) return;
+
+        // Soco
+        if (keys[this.ctrl.atk] && !this.atacando && !this.chutando) {
+            this.atacando = true;
+            this.tempoAtaque = 8;
+            this.olhosAbertos = false;
+
+            const hit = {
+                x: this.x + this.dir * 50,
+                y: this.y - 40,
+                w: 45,
+                h: 35
+            };
+
+            if (Utils.colisao(hit, inimigo.hitbox())) {
+                inimigo.receberDano(CONFIG.DANO_SOCO);
+            }
+        }
+
+        // Chute
+        const teclaChute = this.id === "p1" ? "c" : ".";
+        if (keys[teclaChute] && !this.chutando && !this.atacando) {
+            this.chutando = true;
+            this.tempoChute = 12;
+            
+            this.sapatoX = this.x + this.dir * 20;
+            this.sapatoY = this.y + 10;
+
+            const hit = {
+                x: this.x + this.dir * 60,
+                y: this.y + 5,
+                w: 50,
+                h: 30
+            };
+
+            if (Utils.colisao(hit, inimigo.hitbox())) {
+                inimigo.receberDano(CONFIG.DANO_CHUTE);
+            }
+        }
+
+        // Atualiza temporizadores
+        this.atualizarTemporizadores();
+    }
+    
+    atualizarTemporizadores() {
+        // Atualiza temporizador de transformação
+        if (this.transformado && this.tempoTransformacao > 0) {
+            this.tempoTransformacao--;
+            if (this.tempoTransformacao <= 0) {
+                this.transformado = false;
+            }
+        }
+        
+        // Atualiza ataque
+        if (this.atacando && --this.tempoAtaque <= 0) {
+            this.atacando = false;
+            this.olhosAbertos = true;
+        }
+        
+        // Atualiza chute
+        if (this.chutando) {
+            this.tempoChute--;
+            if (this.tempoChute > 8) {
+                this.sapatoX += this.dir * 8;
+                this.sapatoY -= 2;
+            } else if (this.tempoChute > 4) {
+                this.sapatoY += 1;
+            } else if (this.tempoChute > 0) {
+                this.sapatoX -= this.dir * 6;
+                this.sapatoY += 3;
+            } else {
+                this.chutando = false;
+            }
+        }
+    }
+
+    // ================= SISTEMA DE PODER =================
+    atualizarCocos(inimigo) {
+        // Atualiza cocôs existentes
+        for (let i = this.cocosAtivos.length - 1; i >= 0; i--) {
+            const coco = this.cocosAtivos[i];
+            coco.atualizar();
+            
+            // Verifica colisão
+            if (coco.ativo && inimigo.vivo && Utils.colisao(coco.hitbox(), inimigo.hitbox())) {
+                inimigo.receberDano(CONFIG.DANO_BOMBA);
+                coco.ativo = false;
+            }
+            
+            // Remove cocôs inativos
+            if (!coco.ativo) {
+                this.cocosAtivos.splice(i, 1);
+            }
+        }
+        
+        // Atualiza cooldown
+        if (this.cdPoder > 0) {
+            this.cdPoder--;
+        }
+    }
+    
+    lancarCoco() {
+        if (this.cdPoder > 0) return;
+        
+        const coco = new CocoProjetil(
+            this.x,
+            this.y - 30,
+            this.dir,
+            this.cor,
+            this.id
+        );
+        
+        this.cocosAtivos.push(coco);
+        this.cdPoder = CONFIG.CD_PODER;
+        
+        return coco;
+    }
+
+    // ================= FÍSICA =================
+    fisica() {
+        if (!this.vivo) { 
+            this.y = CONFIG.CHAO + 10; 
+            this.vy = 0;
+            return null;
+        }
+        
+        this.y += this.vy;
+        
+        // Aplica gravidade normal ou descida rápida
+        if (!this.descendoRapido) {
+            this.vy += CONFIG.GRAVIDADE;
+        }
+        
+        // Verifica se bateu no chão
+        if (this.y >= CONFIG.CHAO) {
+            const bateuComForca = this.vy > 10 && this.descendoRapido && this.cargaPoder > 10;
+            
+            this.y = CONFIG.CHAO;
+            this.vy = 0;
+            this.pulando = false;
+            this.descendoRapido = false;
+            this.transformado = false;
+            
+            // Lança cocô se bateu com força
+            if (bateuComForca && this.cdPoder <= 0) {
+                const coco = this.lancarCoco();
+                return coco;
+            }
+            
+            this.cargaPoder = 0;
+        }
+        
+        return null;
+    }
+
+    // ================= DANO =================
+    receberDano(v) {
+        if (!this.vivo) return;
+        
+        const agora = Date.now();
+        if (agora - this.ultimoDano < 500) return;
+        this.ultimoDano = agora;
+        
+        this.vida -= v;
+        if (this.vida <= 0) {
+            this.vida = 0;
+            this.vivo = false;
+            this.y = CONFIG.CHAO + 10;
+            this.vy = 0;
+        }
+        
+        this.olhosAbertos = false;
+        setTimeout(() => this.olhosAbertos = true, 200);
+    }
+
+    // ================= DESENHO =================
+    desenhar(ctx) {
+        // Atualiza piscar de olhos
+        this.atualizarPiscar();
+        
+        if (!this.vivo) {
+            this.desenharMorto(ctx);
+            return;
+        }
+        
+        // Desenha transformado ou normal
+        if (this.transformado) {
+            this.desenharTransformado(ctx);
+        } else {
+            this.desenharNormal(ctx);
+        }
+        
+        // Desenha elementos extras
+        this.desenharExtras(ctx);
+    }
+    
+    atualizarPiscar() {
+        this.tempoPiscar++;
+        if (this.tempoPiscar > 100) {
+            this.olhosAbertos = !this.olhosAbertos;
+            this.tempoPiscar = 0;
+        }
+        if (Math.random() < 0.005) {
+            this.olhosAbertos = false;
+            setTimeout(() => this.olhosAbertos = true, 100);
+        }
+    }
+    
+    desenharNormal(ctx) {
+        // Corpo do cocô
+        ctx.fillStyle = this.cor;
+        const raioBase = this.tamanho / 2;
+        
+        // Base
+        Utils.desenharElipse(ctx, this.x, this.y - 10, raioBase, raioBase * 0.6, this.cor);
+        
+        // Parte média
+        Utils.desenharElipse(ctx, this.x, this.y - raioBase, raioBase * 0.7, raioBase * 0.5, this.cor);
+        
+        // Parte superior
+        Utils.desenharElipse(ctx, this.x, this.y - raioBase * 1.5, raioBase * 0.5, raioBase * 0.4, this.cor);
+        
+        // Topo
+        Utils.desenharElipse(ctx, this.x, this.y - raioBase * 1.8, raioBase * 0.3, raioBase * 0.25, this.cor);
+        
+        // Detalhes
+        this.desenharDetalhes(ctx, raioBase);
+        
+        // Sapatos
+        this.desenharSapatos(ctx);
+        
+        // Braços
+        this.desenharBracos(ctx);
+        
+        // Face
+        this.desenharFace(ctx);
+    }
+    
+    // Desenha transformado em bola
+    desenharTransformado(ctx) {
+        const raioBola = this.tamanho * 0.6;
+        
+        // Corpo esférico
+        Utils.desenharCirculo(ctx, this.x, this.y - raioBola, raioBola, this.cor);
+        
+        // Detalhes da bola
+        ctx.fillStyle = "#8B4513";
+        for(let i = 0; i < 8; i++) {
+            const angulo = (i / 8) * Math.PI * 2;
+            const detalheX = this.x + Math.cos(angulo) * raioBola * 0.7;
+            const detalheY = this.y - raioBola + Math.sin(angulo) * raioBola * 0.7;
+            Utils.desenharCirculo(ctx, detalheX, detalheY, 4, "#8B4513");
+        }
+        
+        // Sapatos (menores)
+        const sapatoY = this.y + 5;
+        const sapatoX1 = this.x - raioBola * 0.4;
+        const sapatoX2 = this.x + raioBola * 0.4;
+        this.desenharSapatoUnico(ctx, sapatoX1, sapatoY, false);
+        this.desenharSapatoUnico(ctx, sapatoX2, sapatoY, false);
+        
+        // Olhos (sempre abertos durante transformação)
+        this.desenharOlhosTransformados(ctx, raioBola);
+        
+        // Boca
+        this.desenharBocaTransformada(ctx, raioBola);
+        
+        // Efeito de velocidade
+        if (this.descendoRapido) {
+            this.desenharEfeitoVelocidade(ctx);
+        }
+    }
+    
+    desenharOlhosTransformados(ctx, raioBola) {
+        const olhoY = this.y - raioBola * 1.2;
+        
+        // Olhos sempre abertos e grandes
+        Utils.desenharCirculo(ctx, this.x - raioBola * 0.3, olhoY, raioBola * 0.15, "white");
+        Utils.desenharCirculo(ctx, this.x + raioBola * 0.3, olhoY, raioBola * 0.15, "white");
+        
+        // Pupilas (olhando para baixo durante descida)
+        const pupilaOffset = this.descendoRapido ? 2 : 0;
+        Utils.desenharCirculo(ctx, this.x - raioBola * 0.3, olhoY + pupilaOffset, raioBola * 0.08, "black");
+        Utils.desenharCirculo(ctx, this.x + raioBola * 0.3, olhoY + pupilaOffset, raioBola * 0.08, "black");
+    }
+    
+    desenharBocaTransformada(ctx, raioBola) {
+        const bocaY = this.y - raioBola * 0.8;
+        ctx.strokeStyle = "black";
+        ctx.lineWidth = 3;
+        
+        if (this.descendoRapido) {
+            // Boca determinada durante descida
+            ctx.beginPath();
+            ctx.arc(this.x, bocaY, raioBola * 0.2, 0.1, Math.PI - 0.1);
+            ctx.stroke();
+        } else {
+            // Boca normal
+            ctx.beginPath();
+            ctx.arc(this.x, bocaY, raioBola * 0.25, 0.2, Math.PI - 0.2);
+            ctx.stroke();
+        }
+    }
+    
+    desenharEfeitoVelocidade(ctx) {
+        // Linhas de velocidade
+        ctx.strokeStyle = "rgba(255, 255, 0, 0.7)";
+        ctx.lineWidth = 2;
+        ctx.setLineDash([5, 3]);
+        
+        for(let i = 0; i < 3; i++) {
+            ctx.beginPath();
+            ctx.moveTo(this.x - 20 + i * 10, this.y + 30);
+            ctx.lineTo(this.x - 50 + i * 10, this.y + 50);
+            ctx.stroke();
+        }
+        ctx.setLineDash([]);
+    }
+    
+    desenharDetalhes(ctx, raioBase) {
+        ctx.fillStyle = "#8B4513";
+        for(let i = 0; i < 7; i++) {
+            const angulo = (i / 7) * Math.PI * 2;
+            const detalheX = this.x + Math.cos(angulo) * raioBase * 0.7;
+            const detalheY = this.y - 10 + Math.sin(angulo) * raioBase * 0.4;
+            Utils.desenharElipse(ctx, detalheX, detalheY, 4, 3, "#8B4513");
+        }
+    }
+    
+    desenharSapatos(ctx) {
+        if (this.chutando) {
+            this.desenharSapatoUnico(ctx, this.sapatoX, this.sapatoY, true);
+            const sapatoNormalX = this.x + (this.dir > 0 ? -15 : 15);
+            this.desenharSapatoUnico(ctx, sapatoNormalX, this.y + 15, false);
+        } else {
+            const sapatoEsqX = this.x - 15;
+            const sapatoDirX = this.x + 15;
+            
+            if (this.pulando) {
+                this.desenharSapatoUnico(ctx, sapatoEsqX + 5, this.y + 5, false);
+                this.desenharSapatoUnico(ctx, sapatoDirX - 5, this.y + 5, false);
+            } else {
+                this.desenharSapatoUnico(ctx, sapatoEsqX, this.y + 15, false);
+                this.desenharSapatoUnico(ctx, sapatoDirX, this.y + 15, false);
+            }
+        }
+    }
+    
+    desenharSapatoUnico(ctx, x, y, chutando) {
+        const tamanho = chutando ? 25 : 20;
+        const altura = chutando ? 12 : 10;
+        
+        // Sapato
+        Utils.desenharElipse(ctx, x, y, tamanho, altura, this.corSapato);
+        
+        // Detalhe
+        const corDetalhe = this.corSapato === "cyan" ? "#00aaff" : "#ff4444";
+        Utils.desenharElipse(ctx, x + (this.dir > 0 ? 8 : -8), y, tamanho * 0.6, altura * 0.7, corDetalhe);
+        
+        // Sola
+        Utils.desenharElipse(ctx, x, y + altura - 2, tamanho * 0.9, 3, "#333");
+        
+        // Efeito de chute
+        if (chutando) {
+            ctx.strokeStyle = "yellow";
+            ctx.lineWidth = 2;
+            ctx.setLineDash([5, 5]);
+            ctx.beginPath();
+            for(let i = 0; i < 3; i++) {
+                ctx.moveTo(x - this.dir * 20 - i * 5, y);
+                ctx.lineTo(x - this.dir * 40 - i * 10, y);
+            }
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+    }
+    
+    desenharBracos(ctx) {
+        ctx.strokeStyle = this.cor;
+        ctx.lineWidth = 10;
+        
+        if (this.atacando) {
+            // Braço atacante
+            const bracoX = this.x + this.dir * 60;
+            const bracoY = this.y - 40;
+            
+            ctx.beginPath();
+            ctx.moveTo(this.x + this.dir * 20, this.y - 40);
+            ctx.lineTo(bracoX, bracoY);
+            ctx.stroke();
+            
+            // Punho
+            Utils.desenharCirculo(ctx, bracoX, bracoY, 15, this.cor);
+            
+            // Outro braço
+            ctx.beginPath();
+            ctx.moveTo(this.x - this.dir * 20, this.y - 40);
+            ctx.lineTo(this.x - this.dir * 45, this.y - 35);
+            ctx.stroke();
+        } else {
+            // Braços normais
+            const offsetPulo = this.pulando ? -15 : 0;
+            ctx.beginPath();
+            ctx.moveTo(this.x - 20, this.y - 40);
+            ctx.lineTo(this.x - 50, this.y - 30 + offsetPulo);
+            ctx.stroke();
+            
+            ctx.beginPath();
+            ctx.moveTo(this.x + 20, this.y - 40);
+            ctx.lineTo(this.x + 50, this.y - 30 + offsetPulo);
+            ctx.stroke();
+        }
+    }
+    
+    desenharFace(ctx) {
+        this.desenharOlhos(ctx);
+        this.desenharBoca(ctx);
+    }
+    
+    desenharOlhos(ctx) {
+        const olhoY = this.y - this.tamanho * 0.9;
+        
+        if (this.olhosAbertos) {
+            // Olhos brancos
+            Utils.desenharCirculo(ctx, this.x - 15, olhoY, 8, "white");
+            Utils.desenharCirculo(ctx, this.x + 15, olhoY, 8, "white");
+            
+            // Pupilas
+            let pupilaX = this.dir * 2;
+            if (this.atacando || this.chutando) pupilaX = this.dir * 4;
+            if (this.pulando) pupilaX = 0;
+            
+            Utils.desenharCirculo(ctx, this.x - 15 + pupilaX, olhoY, 4, "black");
+            Utils.desenharCirculo(ctx, this.x + 15 + pupilaX, olhoY, 4, "black");
+            
+            // Brilho
+            Utils.desenharCirculo(ctx, this.x - 15 + pupilaX - 2, olhoY - 2, 2, "rgba(255, 255, 255, 0.8)");
+            Utils.desenharCirculo(ctx, this.x + 15 + pupilaX - 2, olhoY - 2, 2, "rgba(255, 255, 255, 0.8)");
+        } else {
+            // Olhos fechados
+            ctx.strokeStyle = "black";
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(this.x - 23, olhoY);
+            ctx.lineTo(this.x - 7, olhoY);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(this.x + 7, olgoY);
+            ctx.lineTo(this.x + 23, olgoY);
+            ctx.stroke();
+        }
+    }
+    
+    desenharBoca(ctx) {
+        const bocaY = this.y - this.tamanho * 0.7;
+        ctx.strokeStyle = "black";
+        ctx.lineWidth = 4;
+        
+        if (this.atacando) {
+            ctx.beginPath();
+            ctx.arc(this.x, bocaY, 12, 0, Math.PI);
+            ctx.stroke();
+        } else if (this.chutando) {
+            ctx.beginPath();
+            ctx.moveTo(this.x - 10, bocaY);
+            ctx.lineTo(this.x + 10, bocaY);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(this.x - 8, bocaY + 3);
+            ctx.lineTo(this.x + 8, bocaY + 3);
+            ctx.stroke();
+        } else if (this.pulando) {
+            ctx.beginPath();
+            ctx.arc(this.x, bocaY, 8, 0, Math.PI * 2);
+            ctx.stroke();
+        } else {
+            ctx.beginPath();
+            ctx.arc(this.x, bocaY, 10, 0.2, Math.PI - 0.2);
+            ctx.stroke();
+        }
+    }
+    
+    desenharExtras(ctx) {
+        // Desenha cocôs ativos
+        for (const coco of this.cocosAtivos) {
+            coco.desenhar(ctx);
+        }
+        
+        // Indicador de carregamento
+        if (this.descendoRapido && this.cargaPoder > 0) {
+            this.desenharIndicadorPoder(ctx);
+        }
+        
+        // Indicador de cooldown
+        if (this.cdPoder > 0) {
+            this.desenharCooldown(ctx);
+        }
+    }
+    
+    desenharIndicadorPoder(ctx) {
+        const porcentagem = Math.min(this.cargaPoder / this.maxCarga, 1);
+        const largura = 40;
+        const altura = 6;
+        const x = this.x - largura / 2;
+        const y = this.y - this.tamanho - 30;
+        
+        Utils.desenharBarra(ctx, x, y, largura, altura, this.cargaPoder, this.maxCarga, "#333", porcentagem >= 1 ? "#ff00ff" : "#00ff00");
+        
+        Utils.desenharTexto(ctx, "BOMBA!", this.x, y - 5, 10, "white", "center");
+    }
+    
+    desenharCooldown(ctx) {
+        const porcentagem = this.cdPoder / CONFIG.CD_PODER;
+        const raio = 15;
+        const x = this.x;
+        const y = this.y - this.tamanho - 50;
+        
+        // Círculo de cooldown
+        ctx.strokeStyle = "#ff4444";
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(x, y, raio, -Math.PI/2, (-Math.PI/2) + (Math.PI * 2 * (1 - porcentagem)), true);
+        ctx.stroke();
+        
+        // Texto
+        Utils.desenharTexto(ctx, Math.ceil(this.cdPoder / 60 * 10) + "s", x, y + 3, 10, "white", "center");
+    }
+    
+    desenharMorto(ctx) {
+        // Corpo achatado
+        const raioMorto = this.tamanho / 2;
+        Utils.desenharElipse(ctx, this.x, this.y - 10, raioMorto, raioMorto * 0.4, this.cor);
+        
+        // Detalhes
+        ctx.fillStyle = "#8B4513";
+        for(let i = 0; i < 5; i++) {
+            Utils.desenharElipse(ctx, this.x - 20 + i * 10, this.y - 10, 5, 3, "#8B4513");
+        }
+        
+        // Sapatos caídos
+        this.desenharSapatoUnico(ctx, this.x - 25, this.y + 25, false);
+        this.desenharSapatoUnico(ctx, this.x + 25, this.y + 25, false);
+        
+        // Olhos em X
+        ctx.strokeStyle = "black";
+        ctx.lineWidth = 4;
+        const olhoY = this.y - this.tamanho * 0.6;
+        
+        for(let i = 0; i < 2; i++) {
+            const offset = i * 20;
+            ctx.beginPath();
+            ctx.moveTo(this.x - 20 + offset, olgoY - 5);
+            ctx.lineTo(this.x - 10 + offset, olgoY + 5);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(this.x - 10 + offset, olgoY - 5);
+            ctx.lineTo(this.x - 20 + offset, olgoY + 5);
+            ctx.stroke();
+        }
+    }
+
+    // ================= UTILIDADES =================
+    hitbox() {
+        return { 
+            x: this.x - this.tamanho/2, 
+            y: this.y - this.tamanho, 
+            w: this.tamanho, 
+            h: this.tamanho + 20
+        };
+    }
+    
+    reset() {
+        this.x = this.inicialX;
+        this.y = CONFIG.CHAO;
+        this.vy = 0;
+        this.vida = 100;
+        this.vivo = true;
+        
+        // Estados
+        this.pulando = false;
+        this.atacando = false;
+        this.chutando = false;
+        this.descendoRapido = false;
+        this.transformado = false;
+        
+        // Temporizadores
+        this.tempoAtaque = 0;
+        this.tempoChute = 0;
+        this.tempoTransformacao = 0;
+        
+        // Outros
+        this.olhosAbertos = true;
+        this.tempoPiscar = 0;
+        this.sapatoX = 0;
+        this.sapatoY = 0;
+        this.cdPoder = 0;
+        this.cocosAtivos = [];
+        this.cargaPoder = 0;
+    }
+}
+</script>
