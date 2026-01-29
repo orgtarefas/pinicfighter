@@ -1,4 +1,4 @@
-// Cria os jogadores com seus personagens escolhidos
+// Declaração única de p1 e p2
 let p1, p2;
 
 function inicializarJogadores() {
