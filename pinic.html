@@ -71,9 +71,6 @@ const CHAO = 320;
 const LIM_ESQ = 40;
 const LIM_DIR = canvas.width - 40;
 
-let jogoTerminado = false;
-let tempoMorte = 0;
-
 /* ================= LUTADOR COCÔ GRANDE ================= */
 class LutadorCoco {
     constructor(x, cor, corSapato, controles, direcao, id) {
@@ -103,7 +100,7 @@ class LutadorCoco {
     }
 
     mover(keys) {
-        if (!this.vivo || jogoTerminado) return;
+        if (!this.vivo) return;
         
         if (keys[this.ctrl.esq]) { 
             this.x -= this.vel; 
@@ -118,14 +115,14 @@ class LutadorCoco {
     }
 
     pular(keys) {
-        if (keys[this.ctrl.pulo] && !this.pulando && this.vivo && !this.chutando && !jogoTerminado) {
+        if (keys[this.ctrl.pulo] && !this.pulando && this.vivo && !this.chutando) {
             this.vy = -18;
             this.pulando = true;
         }
     }
 
     atacar(keys, inimigo) {
-        if (!this.vivo || !inimigo.vivo || jogoTerminado) return;
+        if (!this.vivo || !inimigo.vivo) return;
 
         // ATAQUE DE SOCO
         if (keys[this.ctrl.atk] && !this.atacando && !this.chutando) {
@@ -141,7 +138,6 @@ class LutadorCoco {
             };
 
             if (colisao(hit, inimigo.hitbox())) {
-                enviarDano(inimigo.id, 8);
                 inimigo.receberDano(8);
             }
         }
@@ -163,7 +159,6 @@ class LutadorCoco {
             };
 
             if (colisao(hit, inimigo.hitbox())) {
-                enviarDano(inimigo.id, 15);
                 inimigo.receberDano(15);
             }
         }
@@ -191,7 +186,7 @@ class LutadorCoco {
     }
 
     receberDano(v) {
-        if (!this.vivo || jogoTerminado) return;
+        if (!this.vivo) return;
         
         const agora = Date.now();
         if (agora - this.ultimoDano < 500) return;
@@ -203,12 +198,8 @@ class LutadorCoco {
             this.vivo = false;
             this.y = CHAO + 10;
             this.vy = 0;
-            
-            enviarMorte(this.id);
-            verificarFimDoJogo();
         }
         
-        enviarVida(this.id, this.vida);
         this.olhosAbertos = false;
         setTimeout(() => this.olhosAbertos = true, 200);
     }
@@ -418,7 +409,7 @@ class LutadorCoco {
             ctx.arc(this.x - 15, olhoY, 8, 0, Math.PI * 2);
             ctx.fill();
             ctx.beginPath();
-            ctx.arc(this.x + 15, olhoY, 8, 0, Math.PI * 2);
+            ctx.arc(this.x + 15, olgoY, 8, 0, Math.PI * 2);
             ctx.fill();
             
             ctx.fillStyle = "black";
@@ -432,18 +423,18 @@ class LutadorCoco {
             }
             
             ctx.beginPath();
-            ctx.arc(this.x - 15 + pupilaX, olhoY, 4, 0, Math.PI * 2);
+            ctx.arc(this.x - 15 + pupilaX, olgoY, 4, 0, Math.PI * 2);
             ctx.fill();
             ctx.beginPath();
-            ctx.arc(this.x + 15 + pupilaX, olhoY, 4, 0, Math.PI * 2);
+            ctx.arc(this.x + 15 + pupilaX, olgoY, 4, 0, Math.PI * 2);
             ctx.fill();
             
             ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
             ctx.beginPath();
-            ctx.arc(this.x - 15 + pupilaX - 2, olhoY - 2, 2, 0, Math.PI * 2);
+            ctx.arc(this.x - 15 + pupilaX - 2, olgoY - 2, 2, 0, Math.PI * 2);
             ctx.fill();
             ctx.beginPath();
-            ctx.arc(this.x + 15 + pupilaX - 2, olhoY - 2, 2, 0, Math.PI * 2);
+            ctx.arc(this.x + 15 + pupilaX - 2, olgoY - 2, 2, 0, Math.PI * 2);
             ctx.fill();
         } else {
             ctx.strokeStyle = "black";
@@ -562,179 +553,59 @@ const p1 = new LutadorCoco(250,"#8B7355","cyan",{esq:"a",dir:"d",pulo:"w",atk:"f
 const p2 = new LutadorCoco(650,"#8B7355","red",{esq:"ArrowLeft",dir:"ArrowRight",pulo:"ArrowUp",atk:"Enter"},-1,"p2");
 
 /* ================= FIREBASE SYNC ================= */
-let estouMorto = false;
-let jogoTerminadoFirebase = false;
+// Vamos simplificar MUITO o sistema de sincronização
 
-function verificarFimDoJogo() {
-    if (!p1.vivo || !p2.vivo) {
-        jogoTerminado = true;
-        tempoMorte = Date.now();
-        // Para de enviar dados quando o jogo termina
-        db.ref("jogoTerminado").set(true);
-    }
-}
-
-function enviarPosicao(j){
-    if (!j.vivo || jogoTerminado) return;
-    
-    db.ref("jogo/"+meuId).set({
-        x: j.x, 
-        y: j.y, 
-        vida: j.vida, 
-        dir: j.dir,
-        atacando: j.atacando,
-        chutando: j.chutando,
-        sapatoX: j.sapatoX,
-        sapatoY: j.sapatoY,
-        vivo: j.vivo,
-        pulando: j.pulando,
-        olhosAbertos: j.olhosAbertos
-    });
-}
-
-function enviarDano(idAlvo, dano) {
-    if (jogoTerminado) return;
-    db.ref("dano").set({
-        alvo: idAlvo,
-        valor: dano,
-        tempo: Date.now()
-    });
-}
-
-function enviarVida(id, vida) {
-    if (jogoTerminado) return;
-    db.ref("vida/"+id).set(vida);
-}
-
-function enviarMorte(id) {
-    db.ref("morte").set({
-        id: id,
-        tempo: Date.now()
-    });
-}
-
-function reiniciarJogo() {
-    p1.reset();
-    p2.reset();
-    jogoTerminado = false;
-    estouMorto = false;
-    jogoTerminadoFirebase = false;
-    
-    // Limpa todos os dados do Firebase
-    db.ref("jogo").set({
-        p1: {x: 250, y: CHAO, vida: 100, dir: 1, atacando: false, chutando: false, sapatoX: 0, sapatoY: 0, vivo: true, pulando: false, olhosAbertos: true},
-        p2: {x: 650, y: CHAO, vida: 100, dir: -1, atacando: false, chutando: false, sapatoX: 0, sapatoY: 0, vivo: true, pulando: false, olhosAbertos: true}
-    });
-    
-    db.ref("vida").set({
-        p1: 100,
-        p2: 100
-    });
-    
-    db.ref("dano").remove();
-    db.ref("morte").remove();
-    db.ref("jogoTerminado").set(false);
-    db.ref("reinicio").set({
-        tempo: Date.now(),
-        jogador: meuId
-    });
-}
-
-// Escuta por danos
-db.ref("dano").on("value", s => {
-    const d = s.val();
-    if (!d || d.alvo !== meuId || jogoTerminado) return;
-    
+function enviarDados() {
     const jogador = meuId === "p1" ? p1 : p2;
-    jogador.receberDano(d.valor);
-});
+    db.ref("jogo/"+meuId).set({
+        x: jogador.x,
+        y: jogador.y,
+        vida: jogador.vida,
+        dir: jogador.dir,
+        atacando: jogador.atacando,
+        chutando: jogador.chutando,
+        vivo: jogador.vivo,
+        pulando: jogador.pulando,
+        sapatoX: jogador.sapatoX,
+        sapatoY: jogador.sapatoY
+    });
+}
 
-// Escuta por atualizações de vida
-db.ref("vida/"+meuId).on("value", s => {
-    const vida = s.val();
-    if (vida !== null && vida !== undefined && !jogoTerminado) {
-        const jogador = meuId === "p1" ? p1 : p2;
-        if (vida < jogador.vida) {
-            jogador.vida = vida;
-            if (jogador.vida <= 0) {
-                jogador.vida = 0;
-                jogador.vivo = false;
-                estouMorto = true;
-                verificarFimDoJogo();
-            }
-        }
-    }
-});
-
-// Escuta por mortes
-db.ref("morte").on("value", s => {
-    const m = s.val();
-    if (!m || jogoTerminado) return;
-    
-    const jogador = m.id === "p1" ? p1 : p2;
-    jogador.vida = 0;
-    jogador.vivo = false;
-    jogador.y = CHAO + 10;
-    verificarFimDoJogo();
-});
-
-// Escuta por estado do jogo
-db.ref("jogoTerminado").on("value", s => {
-    const terminado = s.val();
-    if (terminado !== null) {
-        jogoTerminadoFirebase = terminado;
-        if (terminado) {
-            jogoTerminado = true;
-        }
-    }
-});
-
-// Escuta por posição do inimigo (só se o jogo não terminou)
+// Recebe dados do inimigo - SIMPLES
 db.ref("jogo/"+inimigoId).on("value", s => {
-    if (jogoTerminado) return;
-    
-    const d = s.val();
-    if (!d) return;
+    const dados = s.val();
+    if (!dados) return;
     
     const inimigo = inimigoId === "p1" ? p1 : p2;
     
-    // Não atualiza dados se o jogo terminou
-    if (d.vivo === false && !inimigo.vivo) {
-        jogoTerminado = true;
-        return;
+    // Só atualiza posição, estado e vida
+    inimigo.x = dados.x;
+    inimigo.y = dados.y;
+    inimigo.dir = dados.dir;
+    inimigo.atacando = dados.atacando;
+    inimigo.chutando = dados.chutando;
+    inimigo.pulando = dados.pulando;
+    inimigo.sapatoX = dados.sapatoX;
+    inimigo.sapatoY = dados.sapatoY;
+    
+    // Vida e estado de vida - cuidado para não regenerar
+    if (dados.vida < inimigo.vida) {
+        inimigo.vida = dados.vida;
     }
     
-    if (inimigo.vivo || d.vivo === false) {
-        inimigo.x = d.x || inimigo.x;
-        inimigo.y = d.y || inimigo.y;
-        inimigo.dir = d.dir || inimigo.dir;
-        inimigo.atacando = d.atacando || false;
-        inimigo.chutando = d.chutando || false;
-        inimigo.sapatoX = d.sapatoX || 0;
-        inimigo.sapatoY = d.sapatoY || 0;
-        inimigo.pulando = d.pulando || false;
-        inimigo.olhosAbertos = d.olhosAbertos !== undefined ? d.olhosAbertos : inimigo.olhosAbertos;
-        
-        if (d.vida !== undefined && d.vida < inimigo.vida) {
-            inimigo.vida = d.vida;
-        }
-        
-        if (d.vivo === false) {
-            inimigo.vivo = false;
-            inimigo.vida = 0;
-            verificarFimDoJogo();
-        }
+    // Estado de vida
+    inimigo.vivo = dados.vivo;
+    if (!dados.vivo) {
+        inimigo.vida = 0;
     }
 });
 
-// Escuta por reinício
+// Sistema de reinício simples
 db.ref("reinicio").on("value", s => {
-    const r = s.val();
-    if (!r) return;
-    
-    // Só reinicia se não for o próprio jogador que iniciou
-    if (r.jogador !== meuId) {
-        reiniciarJogo();
+    const dados = s.val();
+    if (dados && dados.jogador !== meuId) {
+        p1.reset();
+        p2.reset();
     }
 });
 
@@ -781,8 +652,6 @@ function fim(){
     ctx.fillText(vencedor, 450, 180);
     ctx.font = "20px Arial";
     ctx.fillText("Pressione R para recomeçar", 450, 220);
-    ctx.font = "16px Arial";
-    ctx.fillText("(ambos os jogadores precisam pressionar R)", 450, 250);
 }
 
 /* ================= LOOP ================= */
@@ -795,31 +664,42 @@ function loop(){
     const jogadorLocal = meuId === "p1" ? p1 : p2;
     const inimigoLocal = meuId === "p1" ? p2 : p1;
     
-    if (!jogoTerminado) {
-        if (jogadorLocal.vivo) {
-            jogadorLocal.mover(keys);
-            jogadorLocal.pular(keys);
-            jogadorLocal.atacar(keys, inimigoLocal);
-            jogadorLocal.fisica();
-        }
-        
-        inimigoLocal.fisica();
-
-        if (jogadorLocal.vivo) {
-            enviarPosicao(jogadorLocal);
-        }
+    // Controle local - SEMPRE funciona
+    if (jogadorLocal.vivo) {
+        jogadorLocal.mover(keys);
+        jogadorLocal.pular(keys);
+        jogadorLocal.atacar(keys, inimigoLocal);
+        jogadorLocal.fisica();
     }
+    
+    // Física do inimigo (sempre)
+    inimigoLocal.fisica();
+
+    // Envia dados locais para Firebase
+    enviarDados();
 
     p1.desenhar();
     p2.desenhar();
 
-    if(jogoTerminado){
+    // Verifica fim do jogo
+    if(!p1.vivo || !p2.vivo){
         fim();
+        
+        // Sistema de reinício SIMPLES
         if(keys["r"] || keys["R"]){
-            // Espera um pouco antes de permitir reinício
-            if (Date.now() - tempoMorte > 1000) {
-                reiniciarJogo();
-            }
+            p1.reset();
+            p2.reset();
+            
+            // Avisa o outro jogador para reiniciar também
+            db.ref("reinicio").set({
+                tempo: Date.now(),
+                jogador: meuId
+            });
+            
+            // Limpa o estado de reinício após um tempo
+            setTimeout(() => {
+                db.ref("reinicio").remove();
+            }, 1000);
         }
     }
 
@@ -827,7 +707,10 @@ function loop(){
 }
 
 // Inicializa dados no Firebase
-reiniciarJogo();
+db.ref("jogo").set({
+    p1: {x: 250, y: CHAO, vida: 100, dir: 1, atacando: false, chutando: false, vivo: true, pulando: false, sapatoX: 0, sapatoY: 0},
+    p2: {x: 650, y: CHAO, vida: 100, dir: -1, atacando: false, chutando: false, vivo: true, pulando: false, sapatoX: 0, sapatoY: 0}
+});
 
 fundo.onload = loop;
 </script>
