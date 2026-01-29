@@ -13,20 +13,67 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
-// Seleção do jogador
+// Seleção do jogador e personagem
 let meuId, inimigoId;
+let meuPersonagem = "cocozin"; // padrão
+let inimigoPersonagem = "cocozin"; // padrão
+
+// Função para selecionar personagem
+function selecionarPersonagem() {
+    const opcoes = ["Cocozin", "Ratazana", "Peidovélio"];
+    let escolha = prompt(`Escolha seu personagem:\n1. ${opcoes[0]}\n2. ${opcoes[1]}\n3. ${opcoes[2]}\n\nDigite 1, 2 ou 3:`);
+    
+    switch(escolha) {
+        case "1":
+            return "cocozin";
+        case "2":
+            return "ratazana";
+        case "3":
+            return "peidovélio";
+        default:
+            alert("Escolha inválida. Usando Cocozin.");
+            return "cocozin";
+    }
+}
 
 // Pergunta ao usuário
 const meuPlayer = prompt("Digite 1 para Player 1 ou 2 para Player 2");
 if (meuPlayer === "1") {
     meuId = "p1";
     inimigoId = "p2";
+    meuPersonagem = selecionarPersonagem();
+    alert(`Você escolheu: ${meuPersonagem.toUpperCase()}`);
+    
+    // Envia escolha para Firebase
+    db.ref("personagens/" + meuId).set(meuPersonagem);
+    
+    // Espera escolha do outro jogador
+    db.ref("personagens/" + inimigoId).on("value", s => {
+        if (s.val()) {
+            inimigoPersonagem = s.val();
+            console.log(`Inimigo escolheu: ${inimigoPersonagem}`);
+        }
+    });
+    
 } else if (meuPlayer === "2") {
     meuId = "p2";
     inimigoId = "p1";
+    meuPersonagem = selecionarPersonagem();
+    alert(`Você escolheu: ${meuPersonagem.toUpperCase()}`);
+    
+    // Envia escolha para Firebase
+    db.ref("personagens/" + meuId).set(meuPersonagem);
+    
+    // Espera escolha do outro jogador
+    db.ref("personagens/" + inimigoId).on("value", s => {
+        if (s.val()) {
+            inimigoPersonagem = s.val();
+            console.log(`Inimigo escolheu: ${inimigoPersonagem}`);
+        }
+    });
 } else {
     // Default para Player 1 se resposta inválida
     meuId = "p1";
     inimigoId = "p2";
-    alert("Resposta inválida. Você será o Player 1.");
+    alert("Resposta inválida. Você será o Player 1 (Cocozin).");
 }
