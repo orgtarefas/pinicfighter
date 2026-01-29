@@ -1,6 +1,40 @@
+// Cria os jogadores com seus personagens escolhidos
+let p1, p2;
+
+function inicializarJogadores() {
+    // Cria jogador local
+    const jogadorLocal = criarPersonagem(
+        meuPersonagem, 
+        meuId === "p1" ? 250 : 650,
+        meuId === "p1" ? {esq:"a", dir:"d", pulo:"w", atk:"f"} : {esq:"ArrowLeft", dir:"ArrowRight", pulo:"ArrowUp", atk:"Enter"},
+        meuId === "p1" ? 1 : -1,
+        meuId
+    );
+    
+    // Cria inimigo (inicialmente como Cocozin)
+    const jogadorInimigo = criarPersonagem(
+        "cocozin",
+        inimigoId === "p1" ? 250 : 650,
+        inimigoId === "p1" ? {esq:"a", dir:"d", pulo:"w", atk:"f"} : {esq:"ArrowLeft", dir:"ArrowRight", pulo:"ArrowUp", atk:"Enter"},
+        inimigoId === "p1" ? 1 : -1,
+        inimigoId
+    );
+    
+    // Atribui aos jogadores globais
+    if (meuId === "p1") {
+        p1 = jogadorLocal;
+        p2 = jogadorInimigo;
+    } else {
+        p1 = jogadorInimigo;
+        p2 = jogadorLocal;
+    }
+    
+    console.log(`Você escolheu: ${meuPersonagem}`);
+    console.log(`Aguardando inimigo escolher personagem...`);
+}
+
 // Inicializa os jogadores
-p1 = new LutadorCoco(250, "#8B7355", "cyan", {esq:"a", dir:"d", pulo:"w", atk:"f"}, 1, "p1");
-p2 = new LutadorCoco(650, "#8B7355", "red", {esq:"ArrowLeft", dir:"ArrowRight", pulo:"ArrowUp", atk:"Enter"}, -1, "p2");
+inicializarJogadores();
 
 // Funções Firebase
 function enviarDados() {
@@ -15,6 +49,8 @@ function enviarDados() {
         dir: jogador.dir,
         atacando: jogador.atacando,
         chutando: jogador.chutando,
+        abaixado: jogador.abaixado,
+        deslizando: jogador.deslizando,
         vivo: jogador.vivo,
         pulando: jogador.pulando,
         sapatoX: jogador.sapatoX,
@@ -22,7 +58,8 @@ function enviarDados() {
         olhosAbertos: jogador.olhosAbertos,
         descendoRapido: jogador.descendoRapido,
         cdPoder: jogador.cdPoder,
-        cargaPoder: jogador.cargaPoder
+        cargaPoder: jogador.cargaPoder,
+        tipo: jogador.tipo
     });
 }
 
@@ -39,17 +76,20 @@ function enviarCocoLancado(jogadorId, x, y, direcao) {
 }
 
 // Recebe dados do inimigo
-db.ref("jogo/" + inimigoId).on("value", s => {
+db.ref("jogo/"+inimigoId).on("value", s => {
     const dados = s.val();
     if (!dados) return;
     
     const inimigo = inimigoId === "p1" ? p1 : p2;
     
+    // Atualiza dados básicos
     inimigo.x = dados.x || inimigo.x;
     inimigo.y = dados.y || inimigo.y;
     inimigo.dir = dados.dir || inimigo.dir;
     inimigo.atacando = dados.atacando || false;
     inimigo.chutando = dados.chutando || false;
+    inimigo.abaixado = dados.abaixado || false;
+    inimigo.deslizando = dados.deslizando || false;
     inimigo.pulando = dados.pulando || false;
     inimigo.sapatoX = dados.sapatoX || 0;
     inimigo.sapatoY = dados.sapatoY || 0;
@@ -58,10 +98,12 @@ db.ref("jogo/" + inimigoId).on("value", s => {
     inimigo.cdPoder = dados.cdPoder || 0;
     inimigo.cargaPoder = dados.cargaPoder || 0;
     
+    // Atualiza vida (só se for menor, para não regenerar)
     if (dados.vida !== undefined && dados.vida < inimigo.vida) {
         inimigo.vida = dados.vida;
     }
     
+    // Atualiza estado de vida
     if (dados.vivo !== undefined) {
         inimigo.vivo = dados.vivo;
         if (!dados.vivo) {
@@ -97,8 +139,15 @@ db.ref("reinicio").on("value", s => {
 });
 
 function reiniciarJogo() {
-    p1.reset();
-    p2.reset();
+    // Reinicia os jogadores mantendo seus tipos
+    const tipoP1 = p1.tipo;
+    const tipoP2 = p2.tipo;
+    
+    p1 = criarPersonagem(tipoP1, 250, 
+        {esq:"a", dir:"d", pulo:"w", atk:"f"}, 1, "p1");
+    p2 = criarPersonagem(tipoP2, 650, 
+        {esq:"ArrowLeft", dir:"ArrowRight", pulo:"ArrowUp", atk:"Enter"}, -1, "p2");
+    
     jogoTerminou = false;
     
     enviarDados();
@@ -112,6 +161,8 @@ function reiniciarJogo() {
                 dir: p1.dir,
                 atacando: false,
                 chutando: false,
+                abaixado: false,
+                deslizando: false,
                 vivo: true,
                 pulando: false,
                 sapatoX: 0,
@@ -119,7 +170,8 @@ function reiniciarJogo() {
                 olhosAbertos: true,
                 descendoRapido: false,
                 cdPoder: 0,
-                cargaPoder: 0
+                cargaPoder: 0,
+                tipo: p1.tipo
             },
             p2: {
                 x: p2.x,
@@ -128,6 +180,8 @@ function reiniciarJogo() {
                 dir: p2.dir,
                 atacando: false,
                 chutando: false,
+                abaixado: false,
+                deslizando: false,
                 vivo: true,
                 pulando: false,
                 sapatoX: 0,
@@ -135,7 +189,8 @@ function reiniciarJogo() {
                 olhosAbertos: true,
                 descendoRapido: false,
                 cdPoder: 0,
-                cargaPoder: 0
+                cargaPoder: 0,
+                tipo: p2.tipo
             }
         });
         
@@ -146,17 +201,23 @@ function reiniciarJogo() {
 // Loop principal do jogo
 function loop() {
     ctx.clearRect(0, 0, 900, 400);
-    ctx.drawImage(fundo, 0, CHAO - 40, 900, 180);
+    
+    // Desenha fundo
+    if (fundo.complete) {
+        ctx.drawImage(fundo, 0, CHAO - 40, 900, 180);
+    }
 
     barras();
 
     const jogadorLocal = meuId === "p1" ? p1 : p2;
     const inimigoLocal = meuId === "p1" ? p2 : p1;
     
+    // Verifica se o jogo terminou
     if (!p1.vivo || !p2.vivo) {
         jogoTerminou = true;
     }
     
+    // Controles só funcionam se o jogo não terminou
     if (!jogoTerminou) {
         if (jogadorLocal.vivo) {
             jogadorLocal.mover(keys);
@@ -165,27 +226,38 @@ function loop() {
             jogadorLocal.fisica();
         }
         
+        // Atualiza cocôs ativos do jogador local
         jogadorLocal.atualizarCocos(inimigoLocal);
+        
+        // Atualiza cocôs ativos do inimigo
         inimigoLocal.atualizarCocos(jogadorLocal);
+        
         inimigoLocal.fisica();
         
+        // Envia dados para Firebase
         enviarDados();
     }
     
+    // Desenha os personagens
     p1.desenhar();
     p2.desenhar();
     
+    // Se o jogo terminou, mostra tela de fim
     if (jogoTerminou) {
         desenharTelaFim();
         
+        // Sistema de reinício
         if (keys["r"] || keys["R"]) {
+            // Envia sinal para reiniciar
             db.ref("reinicio").set({
                 tempo: Date.now(),
                 jogador: meuId
             });
             
+            // Reinicia localmente
             reiniciarJogo();
             
+            // Limpa o sinal de reinício depois de um tempo
             setTimeout(() => {
                 db.ref("reinicio").remove();
             }, 1000);
@@ -195,8 +267,44 @@ function loop() {
     requestAnimationFrame(loop);
 }
 
+// Escuta escolha de personagem do inimigo via Firebase
+db.ref("personagens/" + inimigoId).on("value", s => {
+    const personagemInimigo = s.val();
+    if (personagemInimigo && personagemInimigo !== inimigoPersonagem) {
+        inimigoPersonagem = personagemInimigo;
+        console.log(`Inimigo escolheu: ${inimigoPersonagem}`);
+        
+        // Atualiza o inimigo local com o personagem escolhido
+        if (inimigoId === "p1") {
+            p1 = criarPersonagem(
+                inimigoPersonagem, 
+                250,
+                {esq:"a", dir:"d", pulo:"w", atk:"f"}, 
+                1, 
+                "p1"
+            );
+        } else {
+            p2 = criarPersonagem(
+                inimigoPersonagem, 
+                650,
+                {esq:"ArrowLeft", dir:"ArrowRight", pulo:"ArrowUp", atk:"Enter"}, 
+                -1, 
+                "p2"
+            );
+        }
+    }
+});
+
+// Envia escolha do personagem para o Firebase
+db.ref("personagens/" + meuId).set(meuPersonagem);
+
 // Inicializa o jogo
-fundo.onload = () => {
+if (fundo.complete) {
     reiniciarJogo();
     loop();
-};
+} else {
+    fundo.onload = () => {
+        reiniciarJogo();
+        loop();
+    };
+}
