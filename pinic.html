@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<title>Luta no Pinico 💩</title>
+<style>
+body {
+    margin: 0;
+    background: #111;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+}
+canvas {
+    background: #222;
+    border: 3px solid #6b3e26;
+}
+</style>
+</head>
+<body>
+
+<canvas id="game" width="900" height="400"></canvas>
+
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+const GRAVIDADE = 0.8;
+const CHAO = 320;
+
+let cocos = [];
+let projeteis = [];
+
+function colisao(a, b) {
+    return a.x < b.x + b.w &&
+           a.x + a.w > b.x &&
+           a.y < b.y + b.h &&
+           a.y + a.h > b.y;
+}
+
+class Lutador {
+    constructor(x, cor, controles, direcao) {
+        this.inicialX = x;
+        this.x = x;
+        this.y = CHAO;
+        this.vy = 0;
+        this.cor = cor;
+        this.altura = 60;
+        this.direcao = direcao;
+        this.vel = 4;
+        this.pulando = false;
+        this.atacando = false;
+        this.vida = 100;
+        this.vivo = true;
+        this.controles = controles;
+    }
+
+    mover(keys) {
+        if (!this.vivo) return;
+        if (keys[this.controles.esq]) { this.x -= this.vel; this.direcao = -1; }
+        if (keys[this.controles.dir]) { this.x += this.vel; this.direcao = 1; }
+        this.x = Math.max(30, Math.min(canvas.width - 30, this.x));
+    }
+
+    pular(keys) {
+        if (keys[this.controles.pulo] && !this.pulando && this.vivo) {
+            this.vy = -15;
+            this.pulando = true;
+        }
+    }
+
+    atacar(keys, inimigo) {
+        if (!this.vivo) return;
+        if (keys[this.controles.ataque] && !this.atacando) {
+            this.atacando = true;
+            setTimeout(() => this.atacando = false, 150);
+
+            const hit = {
+                x: this.x + this.direcao * 25,
+                y: this.y - 50,
+                w: 25,
+                h: 25
+            };
+
+            if (colisao(hit, inimigo.getHitbox())) {
+                inimigo.dano(10);
+            }
+        }
+    }
+
+    hadouken(keys) {
+        if (keys[this.controles.especial] && this.vivo) {
+            projeteis.push({
+                x: this.x,
+                y: this.y - 40,
+                vx: this.direcao * 8,
+                w: 20,
+                h: 20
+            });
+            keys[this.controles.especial] = false;
+        }
+    }
+
+    dano(v) {
+        this.vida -= v;
+        if (this.vida <= 0) {
+            this.vida = 0;
+            this.vivo = false;
+        }
+    }
+
+    fisica() {
+        if (!this.vivo) return;
+        this.y += this.vy;
+        this.vy += GRAVIDADE;
+        if (this.y >= CHAO) {
+            this.y = CHAO;
+            this.vy = 0;
+            this.pulando = false;
+        }
+    }
+
+    getHitbox() {
+        return { x: this.x - 10, y: this.y - 70, w: 20, h: 80 };
+    }
+
+    desenhar() {
+        ctx.strokeStyle = this.cor;
+        ctx.lineWidth = 4;
+
+        if (!this.vivo) {
+            ctx.beginPath();
+            ctx.moveTo(this.x - 30, this.y);
+            ctx.lineTo(this.x + 30, this.y);
+            ctx.stroke();
+            return;
+        }
+
+        ctx.beginPath();
+        ctx.moveTo(this.x, this.y - 60);
+        ctx.lineTo(this.x, this.y);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.arc(this.x, this.y - 70, 10, 0, Math.PI * 2);
+        ctx.stroke();
+
+        let bx = this.x + this.direcao * (this.atacando ? 30 : 15);
+        ctx.beginPath();
+        ctx.moveTo(this.x, this.y - 40);
+        ctx.lineTo(bx, this.y - 30);
+        ctx.stroke();
+    }
+
+    reset() {
+        this.x = this.inicialX;
+        this.y = CHAO;
+        this.vida = 100;
+        this.vivo = true;
+    }
+}
+
+// Jogadores
+const keys = {};
+document.addEventListener("keydown", e => keys[e.key] = true);
+document.addEventListener("keyup", e => keys[e.key] = false);
+
+const p1 = new Lutador(250, "cyan",
+    { esq:"a", dir:"d", pulo:"w", ataque:"f", especial:"g" }, 1);
+
+const p2 = new Lutador(650, "red",
+    { esq:"ArrowLeft", dir:"ArrowRight", pulo:"ArrowUp", ataque:"Enter", especial:"Shift" }, -1);
+
+// Cocô do céu
+setInterval(() => {
+    cocos.push({
+        x: Math.random() * canvas.width,
+        y: -20,
+        vy: 4,
+        w: 20,
+        h: 20
+    });
+}, 800);
+
+function loop() {
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+
+    ctx.fillStyle = "#333";
+    ctx.fillRect(0, CHAO + 20, canvas.width, 60);
+
+    // Barras
+    ctx.fillStyle = "green";
+    ctx.fillRect(40, 20, p1.vida * 2, 15);
+    ctx.fillRect(900 - 40 - p2.vida * 2, 20, p2.vida * 2, 15);
+
+    p1.mover(keys); p1.pular(keys); p1.atacar(keys,p2); p1.hadouken(keys); p1.fisica(); p1.desenhar();
+    p2.mover(keys); p2.pular(keys); p2.atacar(keys,p1); p2.hadouken(keys); p2.fisica(); p2.desenhar();
+
+    // Cocôs caindo
+    ctx.fillStyle = "#6b3e26";
+    cocos.forEach((c,i) => {
+        c.y += c.vy;
+        ctx.beginPath();
+        ctx.arc(c.x, c.y, 10, 0, Math.PI*2);
+        ctx.fill();
+
+        if (colisao(c, p1.getHitbox())) { p1.dano(5); cocos.splice(i,1); }
+        if (colisao(c, p2.getHitbox())) { p2.dano(5); cocos.splice(i,1); }
+        if (c.y > CHAO) cocos.splice(i,1);
+    });
+
+    // Hadouken de cocô
+    projeteis.forEach((p,i) => {
+        p.x += p.vx;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 10, 0, Math.PI*2);
+        ctx.fill();
+
+        if (colisao(p, p1.getHitbox())) { p1.dano(15); projeteis.splice(i,1); }
+        if (colisao(p, p2.getHitbox())) { p2.dano(15); projeteis.splice(i,1); }
+        if (p.x < 0 || p.x > canvas.width) projeteis.splice(i,1);
+    });
+
+    if (!p1.vivo || !p2.vivo) {
+        ctx.fillStyle = "white";
+        ctx.font = "30px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText("💩 KO NO PINICO 💩", 450, 180);
+        ctx.font = "18px Arial";
+        ctx.fillText("Pressione R para recomeçar", 450, 220);
+        if (keys["r"] || keys["R"]) { p1.reset(); p2.reset(); cocos=[]; projeteis=[]; }
+    }
+
+    requestAnimationFrame(loop);
+}
+
+loop();
+</script>
+</body>
+</html>
