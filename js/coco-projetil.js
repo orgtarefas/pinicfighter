@@ -1,4 +1,3 @@
-// coco-projetil.js
 class CocoProjetil {
     constructor(x, y, direcao, cor, donoId) {
         this.x = x;
@@ -11,7 +10,6 @@ class CocoProjetil {
         this.raio = 12;
         this.ativo = true;
         this.tempoVida = 100;
-        this.dano = CONFIG.DANO_BOMBA;
     }
     
     atualizar() {
@@ -19,25 +17,23 @@ class CocoProjetil {
         
         this.x += this.velX;
         this.y += this.velY;
-        this.velY += CONFIG.GRAVIDADE;
+        this.velY += GRAVIDADE;
         this.tempoVida--;
         
-        // Se sair da tela ou tempo acabar, desativa
-        if (this.x < 0 || this.x > CONFIG.WIDTH || this.y > CONFIG.CHAO + 50 || this.tempoVida <= 0) {
+        if (this.x < 0 || this.x > canvas.width || this.y > CHAO + 50 || this.tempoVida <= 0) {
             this.ativo = false;
         }
     }
     
-    desenhar(ctx) {
+    desenhar() {
         if (!this.ativo) return;
         
-        // Coco
         ctx.fillStyle = this.cor;
         ctx.beginPath();
         ctx.arc(this.x, this.y, this.raio, 0, Math.PI * 2);
         ctx.fill();
         
-        // Detalhes
+        // Detalhes do cocô
         ctx.fillStyle = "#8B4513";
         ctx.beginPath();
         ctx.arc(this.x - 4, this.y - 3, 3, 0, Math.PI * 2);
@@ -68,11 +64,4 @@ class CocoProjetil {
             h: this.raio * 2
         };
     }
-    
-    verificarColisao(jogador) {
-        if (!this.ativo || !jogador.vivo) return false;
-        return Utils.colisao(this.hitbox(), jogador.hitbox());
-    }
 }
-
-window.CocoProjetil = CocoProjetil;
