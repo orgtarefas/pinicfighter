@@ -3,66 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <title>Pinico Fighter</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
     <div class="logo">
-        <img src="imagens/logo.png" alt="Pinico Fighter">
+        <img src="imagens/logo.png">
     </div>
-    
     <canvas id="game" width="900" height="400"></canvas>
-    
-    <div class="instrucoes">
-        <h3>Controles</h3>
-        <div class="controles">
-            <div class="controle-jogador">
-                <h4>Player 1 (Azul)</h4>
-                <p>Movimento: <span class="tecla">A</span> <span class="tecla">D</span></p>
-                <p>Pulo: <span class="tecla">W</span></p>
-                <p>Soco: <span class="tecla">F</span></p>
-                <p>Chute: <span class="tecla">C</span></p>
-                <p>Bomba: <span class="tecla">W</span> + <span class="tecla">S</span></p>
-            </div>
-            <div class="controle-jogador">
-                <h4>Player 2 (Vermelho)</h4>
-                <p>Movimento: <span class="tecla">←</span> <span class="tecla">→</span></p>
-                <p>Pulo: <span class="tecla">↑</span></p>
-                <p>Soco: <span class="tecla">Enter</span></p>
-                <p>Chute: <span class="tecla">.</span></p>
-                <p>Bomba: <span class="tecla">↑</span> + <span class="tecla">↓</span></p>
-            </div>
-        </div>
-        <p>Pressione R para reiniciar</p>
-    </div>
 
     <!-- Firebase -->
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
-    <!-- ORDEM CRÍTICA DOS ARQUIVOS JS -->
+    <!-- JavaScript -->
     <script src="js/firebase-config.js"></script>
-    <script src="js/utils.js"></script>
     <script src="js/coco-projetil.js"></script>
-    
-    <!-- Criar um arquivo game-core.js temporário com Physics e Attacks -->
-    <script src="js/game-core.js"></script>
-    
-    <script src="js/player.js"></script>
-    <script src="js/game-ui.js"></script>
+    <script src="js/fighter.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/ui.js"></script>
     <script src="js/game.js"></script>
-
-    <script>
-        // Inicia o jogo quando a página carrega
-        window.addEventListener('load', function() {
-            // Pequeno delay para garantir que tudo carregou
-            setTimeout(function() {
-                if (window.Game && Game.init) {
-                    Game.init();
-                } else {
-                    console.error("Game não encontrado!");
-                }
-            }, 100);
-        });
-    </script>
 </body>
 </html>
