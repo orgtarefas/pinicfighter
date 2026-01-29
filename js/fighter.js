@@ -1,6 +1,3 @@
-// Declaração global dos jogadores (serão inicializados em game.js)
-let p1, p2;
-
 // CLASSE BASE PARA TODOS OS PERSONAGENS
 class PersonagemBase {
     constructor(x, cor, corSapato, controles, direcao, id, tipo) {
@@ -1522,3 +1519,4 @@ function criarPersonagem(tipo, x, controles, direcao, id) {
             return new Cocozin(x, "#8B7355", id === "p1" ? "cyan" : "red", controles, direcao, id);
     }
 }
+
