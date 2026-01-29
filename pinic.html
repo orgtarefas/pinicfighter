@@ -5,27 +5,26 @@
 <title>Pinico Fighter</title>
 
 <style>
-    body {
-        margin: 0;
-        background: #111;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        height: 100vh;
-        font-family: Arial;
-        color: white;
-    }
+body {
+    margin: 0;
+    background: #111;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    font-family: Arial;
+    color: white;
+}
 
-    .logo img {
-        max-width: 240px;
-        margin-bottom: 10px;
-    }
+.logo img {
+    max-width: 220px;
+    margin-bottom: 8px;
+}
 
-    canvas {
-        border: 3px solid #0f0;
-        background: #222;
-    }
+canvas {
+    border: 3px solid #0f0;
+}
 </style>
 </head>
 
@@ -37,13 +36,13 @@
 
 <canvas id="game" width="900" height="400"></canvas>
 
-<!-- FIREBASE (COMPAT) -->
+<!-- FIREBASE -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
 <script>
 /* ================= FIREBASE ================= */
-const firebaseConfig = {
+firebase.initializeApp({
   apiKey: "AIzaSyDy_gqNrFR7KmMonXp7KfgRc15UVj0g3Nw",
   authDomain: "pinico-fighter.firebaseapp.com",
   databaseURL: "https://pinico-fighter-default-rtdb.firebaseio.com",
@@ -51,12 +50,11 @@ const firebaseConfig = {
   storageBucket: "pinico-fighter.firebasestorage.app",
   messagingSenderId: "152199667347",
   appId: "1:152199667347:web:9c74188c88bdee8633f766"
-};
+});
 
-firebase.initializeApp(firebaseConfig);
-const database = firebase.database();
+const db = firebase.database();
 
-/* ================= DEFINIÇÃO DE PLAYER ================= */
+/* ================= PLAYER ================= */
 const meuPlayer = prompt("Digite 1 para Player 1 ou 2 para Player 2");
 const meuId = meuPlayer === "1" ? "p1" : "p2";
 const inimigoId = meuId === "p1" ? "p2" : "p1";
@@ -70,47 +68,76 @@ fundo.src = "imagens/fundo.png";
 
 const GRAVIDADE = 0.8;
 const CHAO = 320;
-const LIMITE_ESQ = 40;
-const LIMITE_DIR = canvas.width - 40;
+const LIM_ESQ = 40;
+const LIM_DIR = canvas.width - 40;
 
 /* ================= LUTADOR ================= */
 class Lutador {
     constructor(x, cor, controles, direcao) {
+        this.inicialX = x;
         this.x = x;
         this.y = CHAO;
         this.vy = 0;
         this.cor = cor;
         this.altura = 60;
-        this.velocidade = 4;
-        this.direcao = direcao;
+        this.vel = 4;
+        this.dir = direcao;
         this.pulando = false;
         this.atacando = false;
+        this.tempoAtaque = 0;
         this.vida = 100;
         this.vivo = true;
-        this.controles = controles;
+        this.ctrl = controles;
     }
 
     mover(keys) {
         if (!this.vivo) return;
-        if (keys[this.controles.esq]) {
-            this.x -= this.velocidade;
-            this.direcao = -1;
-        }
-        if (keys[this.controles.dir]) {
-            this.x += this.velocidade;
-            this.direcao = 1;
-        }
-        this.x = Math.max(LIMITE_ESQ, Math.min(LIMITE_DIR, this.x));
+        if (keys[this.ctrl.esq]) { this.x -= this.vel; this.dir = -1; }
+        if (keys[this.ctrl.dir]) { this.x += this.vel; this.dir = 1; }
+        this.x = Math.max(LIM_ESQ, Math.min(LIM_DIR, this.x));
     }
 
     pular(keys) {
-        if (keys[this.controles.pulo] && !this.pulando) {
+        if (keys[this.ctrl.pulo] && !this.pulando && this.vivo) {
             this.vy = -15;
             this.pulando = true;
         }
     }
 
-    aplicarFisica() {
+    atacar(keys, inimigo) {
+        if (!this.vivo) return;
+
+        if (keys[this.ctrl.atk] && !this.atacando) {
+            this.atacando = true;
+            this.tempoAtaque = 10;
+
+            const hit = {
+                x: this.x + this.dir * 25,
+                y: this.y - this.altura + 20,
+                w: 25,
+                h: 20
+            };
+
+            if (colisao(hit, inimigo.hitbox())) {
+                inimigo.receberDano(10);
+            }
+        }
+
+        if (this.atacando && --this.tempoAtaque <= 0) {
+            this.atacando = false;
+        }
+    }
+
+    receberDano(v) {
+        this.vida -= v;
+        if (this.vida <= 0) {
+            this.vida = 0;
+            this.vivo = false;
+        }
+    }
+
+    fisica() {
+        if (!this.vivo) { this.y = CHAO + 20; return; }
         this.y += this.vy;
         this.vy += GRAVIDADE;
         if (this.y >= CHAO) {
@@ -118,6 +145,10 @@ class Lutador {
             this.vy = 0;
             this.pulando = false;
         }
+    }
+
+    hitbox() {
+        return { x: this.x - 10, y: this.y - this.altura - 10, w: 20, h: this.altura + 20 };
     }
 
     desenhar() {
@@ -132,89 +163,90 @@ class Lutador {
             return;
         }
 
-        const corpoY = this.y - this.altura;
+        const y = this.y - this.altura;
+        ctx.beginPath(); ctx.moveTo(this.x, y); ctx.lineTo(this.x, this.y); ctx.stroke();
+        ctx.beginPath(); ctx.arc(this.x, y - 10, 10, 0, Math.PI*2); ctx.stroke();
 
-        ctx.beginPath();
-        ctx.moveTo(this.x, corpoY);
-        ctx.lineTo(this.x, this.y);
-        ctx.stroke();
+        const bx = this.x + this.dir * (this.atacando ? 30 : 15);
+        ctx.beginPath(); ctx.moveTo(this.x, y+20); ctx.lineTo(bx, y+30); ctx.stroke();
 
-        ctx.beginPath();
-        ctx.arc(this.x, corpoY - 10, 10, 0, Math.PI * 2);
-        ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(this.x, y+20); ctx.lineTo(this.x - this.dir*10, y+30); ctx.stroke();
+    }
 
-        ctx.beginPath();
-        ctx.moveTo(this.x, corpoY + 20);
-        ctx.lineTo(this.x + this.direcao * 20, corpoY + 30);
-        ctx.stroke();
-
-        ctx.beginPath();
-        ctx.moveTo(this.x, corpoY + 20);
-        ctx.lineTo(this.x - this.direcao * 10, corpoY + 30);
-        ctx.stroke();
+    reset() {
+        this.x = this.inicialX;
+        this.y = CHAO;
+        this.vy = 0;
+        this.vida = 100;
+        this.vivo = true;
     }
 }
 
-/* ================= CONTROLES ================= */
-const keys = {};
-document.addEventListener("keydown", e => keys[e.key] = true);
-document.addEventListener("keyup", e => keys[e.key] = false);
+/* ================= UTILS ================= */
+function colisao(a,b){
+    return a.x < b.x+b.w && a.x+a.w > b.x && a.y < b.y+b.h && a.y+a.h > b.y;
+}
 
-/* ================= JOGADORES ================= */
-const p1 = new Lutador(250, "cyan", { esq: "a", dir: "d", pulo: "w" }, 1);
-const p2 = new Lutador(650, "red", { esq: "ArrowLeft", dir: "ArrowRight", pulo: "ArrowUp" }, -1);
+/* ================= INPUT ================= */
+const keys = {};
+addEventListener("keydown",e=>keys[e.key]=true);
+addEventListener("keyup",e=>keys[e.key]=false);
+
+/* ================= PLAYERS ================= */
+const p1 = new Lutador(250,"cyan",{esq:"a",dir:"d",pulo:"w",atk:"f"},1);
+const p2 = new Lutador(650,"red",{esq:"ArrowLeft",dir:"ArrowRight",pulo:"ArrowUp",atk:"Enter"},-1);
 
 /* ================= FIREBASE SYNC ================= */
-function enviarEstado(j) {
-    database.ref("jogo/" + meuId).set({
-        x: j.x,
-        y: j.y,
-        vida: j.vida,
-        direcao: j.direcao,
-        vivo: j.vivo
+function enviar(j){
+    db.ref("jogo/"+meuId).set({
+        x:j.x,y:j.y,vida:j.vida,dir:j.dir,
+        atacando:j.atacando,vivo:j.vivo
     });
 }
 
-database.ref("jogo/" + inimigoId).on("value", snap => {
-    const d = snap.val();
-    if (!d) return;
-    const inimigo = inimigoId === "p1" ? p1 : p2;
-    inimigo.x = d.x;
-    inimigo.y = d.y;
-    inimigo.vida = d.vida;
-    inimigo.direcao = d.direcao;
-    inimigo.vivo = d.vivo;
+db.ref("jogo/"+inimigoId).on("value",s=>{
+    const d=s.val(); if(!d) return;
+    const i=inimigoId==="p1"?p1:p2;
+    Object.assign(i,d);
 });
 
+/* ================= UI ================= */
+function barras(){
+    ctx.fillStyle="red";
+    ctx.fillRect(50,20,p1.vida*2,15);
+    ctx.fillRect(900-50-p2.vida*2,20,p2.vida*2,15);
+}
+
+function fim(){
+    ctx.fillStyle="white";
+    ctx.font="26px Arial";
+    ctx.textAlign="center";
+    const vencedor=p1.vivo?"Player 1 venceu":"Player 2 venceu";
+    ctx.fillText(vencedor,450,180);
+    ctx.font="16px Arial";
+    ctx.fillText("Pressione R para recomeçar",450,210);
+}
+
 /* ================= LOOP ================= */
-function loop() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+function loop(){
+    ctx.clearRect(0,0,900,400);
+    ctx.drawImage(fundo,0,CHAO-40,900,180);
 
-    // Fundo (nos pés)
-    ctx.drawImage(fundo, 0, CHAO - 40, canvas.width, 180);
+    barras();
 
-    if (meuId === "p1") {
-        p1.mover(keys);
-        p1.pular(keys);
-        p1.aplicarFisica();
-        enviarEstado(p1);
+    if(meuId==="p1"){ p1.mover(keys); p1.pular(keys); p1.atacar(keys,p2); p1.fisica(); enviar(p1);}
+    if(meuId==="p2"){ p2.mover(keys); p2.pular(keys); p2.atacar(keys,p1); p2.fisica(); enviar(p2);}
+
+    p1.desenhar(); p2.desenhar();
+
+    if(!p1.vivo||!p2.vivo){
+        fim();
+        if(keys["r"]||keys["R"]){ p1.reset(); p2.reset(); }
     }
-
-    if (meuId === "p2") {
-        p2.mover(keys);
-        p2.pular(keys);
-        p2.aplicarFisica();
-        enviarEstado(p2);
-    }
-
-    p1.desenhar();
-    p2.desenhar();
 
     requestAnimationFrame(loop);
 }
-
 loop();
 </script>
-
 </body>
 </html>
