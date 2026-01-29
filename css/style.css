@@ -1,0 +1,20 @@
+body {
+    margin: 0;
+    background: #111;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    font-family: Arial;
+    color: white;
+}
+
+.logo img {
+    max-width: 220px;
+    margin-bottom: 8px;
+}
+
+canvas {
+    border: 3px solid #0f0;
+}
