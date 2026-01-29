@@ -71,15 +71,16 @@ const CHAO = 320;
 const LIM_ESQ = 40;
 const LIM_DIR = canvas.width - 40;
 
-/* ================= LUTADOR ================= */
-class Lutador {
-    constructor(x, cor, controles, direcao, id) {
+/* ================= LUTADOR COCÔ ================= */
+class LutadorCoco {
+    constructor(x, cor, corFita, controles, direcao, id) {
         this.id = id;
         this.inicialX = x;
         this.x = x;
         this.y = CHAO;
         this.vy = 0;
-        this.cor = cor;
+        this.cor = cor; // Cor do cocô
+        this.corFita = corFita; // Cor da fita
         this.altura = 60;
         this.vel = 4;
         this.dir = direcao;
@@ -90,6 +91,8 @@ class Lutador {
         this.vivo = true;
         this.ctrl = controles;
         this.ultimoDano = 0;
+        this.olhosAbertos = true;
+        this.tempoPiscar = 0;
     }
 
     mover(keys) {
@@ -112,12 +115,13 @@ class Lutador {
         if (keys[this.ctrl.atk] && !this.atacando) {
             this.atacando = true;
             this.tempoAtaque = 10;
+            this.olhosAbertos = false; // Fecha os olhos ao atacar
 
             const hit = {
-                x: this.x + this.dir * 25,
-                y: this.y - this.altura + 20,
-                w: 25,
-                h: 20
+                x: this.x + this.dir * 40,
+                y: this.y - 30,
+                w: 40,
+                h: 30
             };
 
             if (colisao(hit, inimigo.hitbox())) {
@@ -129,13 +133,13 @@ class Lutador {
 
         if (this.atacando && --this.tempoAtaque <= 0) {
             this.atacando = false;
+            this.olhosAbertos = true;
         }
     }
 
     receberDano(v) {
         if (!this.vivo) return;
         
-        // Evita dano múltiplo rápido
         const agora = Date.now();
         if (agora - this.ultimoDano < 500) return;
         this.ultimoDano = agora;
@@ -147,11 +151,9 @@ class Lutador {
             this.y = CHAO + 20;
             this.vy = 0;
             
-            // Envia morte para Firebase
             enviarMorte(this.id);
         }
         
-        // Envia atualização de vida para Firebase
         enviarVida(this.id, this.vida);
     }
 
@@ -171,82 +173,198 @@ class Lutador {
     }
 
     hitbox() {
-        return { x: this.x - 10, y: this.y - this.altura - 10, w: 20, h: this.altura + 20 };
+        // Hitbox do cocô (formato oval)
+        return { 
+            x: this.x - 20, 
+            y: this.y - 40, 
+            w: 40, 
+            h: 40 
+        };
     }
 
     desenhar() {
-        ctx.strokeStyle = this.cor;
-        ctx.lineWidth = 4;
+        // Piscar os olhos aleatoriamente
+        this.tempoPiscar++;
+        if (this.tempoPiscar > 100) {
+            this.olhosAbertos = !this.olhosAbertos;
+            this.tempoPiscar = 0;
+        }
+        if (Math.random() < 0.005) {
+            this.olhosAbertos = false;
+            setTimeout(() => this.olhosAbertos = true, 100);
+        }
 
         if (!this.vivo) {
-            // Desenha corpo morto
+            // COCÔ MORTO (achatado)
+            ctx.fillStyle = this.cor;
+            
+            // Corpo do cocô morto
             ctx.beginPath();
-            ctx.moveTo(this.x - 30, this.y);
-            ctx.lineTo(this.x + 30, this.y);
+            ctx.ellipse(this.x, this.y, 25, 15, 0, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Detalhes do cocô morto
+            ctx.fillStyle = "#8B4513";
+            for(let i = 0; i < 3; i++) {
+                ctx.beginPath();
+                ctx.ellipse(this.x - 10 + i * 10, this.y - 5, 3, 2, 0, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            
+            // Fita caída
+            ctx.strokeStyle = this.corFita;
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(this.x - 15, this.y - 20);
+            ctx.lineTo(this.x + 15, this.y - 20);
             ctx.stroke();
             
-            // Desenha pernas mortas
-            ctx.beginPath();
-            ctx.moveTo(this.x - 10, this.y);
-            ctx.lineTo(this.x - 20, this.y + 30);
-            ctx.stroke();
-            
-            ctx.beginPath();
-            ctx.moveTo(this.x + 10, this.y);
-            ctx.lineTo(this.x + 20, this.y + 30);
-            ctx.stroke();
             return;
         }
 
-        const y = this.y - this.altura;
+        // CORPO DO COCÔ (forma de pilha)
+        ctx.fillStyle = this.cor;
         
-        // Tronco
-        ctx.beginPath(); 
-        ctx.moveTo(this.x, y); 
-        ctx.lineTo(this.x, this.y); 
+        // Parte inferior do cocô
+        ctx.beginPath();
+        ctx.ellipse(this.x, this.y, 25, 15, 0, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Parte média do cocô
+        ctx.beginPath();
+        ctx.ellipse(this.x, this.y - 10, 20, 12, 0, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Parte superior do cocô
+        ctx.beginPath();
+        ctx.ellipse(this.x, this.y - 20, 15, 10, 0, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Topo do cocô (ponta)
+        ctx.beginPath();
+        ctx.ellipse(this.x, this.y - 28, 8, 6, 0, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // DETALHES DO COCÔ (textura)
+        ctx.fillStyle = "#8B4513"; // Marrom mais escuro para detalhes
+        
+        // Detalhes na parte inferior
+        for(let i = 0; i < 5; i++) {
+            ctx.beginPath();
+            ctx.ellipse(this.x - 15 + i * 7, this.y, 2, 1.5, 0, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        
+        // Detalhes na parte média
+        for(let i = 0; i < 4; i++) {
+            ctx.beginPath();
+            ctx.ellipse(this.x - 10 + i * 6, this.y - 10, 2, 1.5, 0, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        
+        // Detalhes na parte superior
+        for(let i = 0; i < 3; i++) {
+            ctx.beginPath();
+            ctx.ellipse(this.x - 7 + i * 5, this.y - 20, 2, 1.5, 0, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // FITA DE LUTADOR NA CABEÇA
+        ctx.strokeStyle = this.corFita;
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.moveTo(this.x - 20, this.y - 35);
+        ctx.lineTo(this.x + 20, this.y - 35);
         ctx.stroke();
         
-        // Cabeça
-        ctx.beginPath(); 
-        ctx.arc(this.x, y - 10, 10, 0, Math.PI*2); 
+        // Nó da fita (centro)
+        ctx.beginPath();
+        ctx.arc(this.x, this.y - 35, 5, 0, Math.PI * 2);
+        ctx.stroke();
+        
+        // Pontas da fita caindo
+        ctx.beginPath();
+        ctx.moveTo(this.x - 20, this.y - 35);
+        ctx.lineTo(this.x - 25, this.y - 30);
+        ctx.stroke();
+        
+        ctx.beginPath();
+        ctx.moveTo(this.x + 20, this.y - 35);
+        ctx.lineTo(this.x + 25, this.y - 30);
         ctx.stroke();
 
-        // Braço atacante/defensivo
-        const bx = this.x + this.dir * (this.atacando ? 30 : 15);
-        ctx.beginPath(); 
-        ctx.moveTo(this.x, y+20); 
-        ctx.lineTo(bx, y+30); 
-        ctx.stroke();
+        // OLHOS
+        if (this.olhosAbertos) {
+            ctx.fillStyle = "white";
+            // Olho esquerdo
+            ctx.beginPath();
+            ctx.arc(this.x - 8, this.y - 25, 4, 0, Math.PI * 2);
+            ctx.fill();
+            // Olho direito
+            ctx.beginPath();
+            ctx.arc(this.x + 8, this.y - 25, 4, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Pupilas
+            ctx.fillStyle = "black";
+            const pupilaX = this.dir > 0 ? 2 : -2; // Olham na direção do movimento
+            ctx.beginPath();
+            ctx.arc(this.x - 8 + pupilaX, this.y - 25, 2, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(this.x + 8 + pupilaX, this.y - 25, 2, 0, Math.PI * 2);
+            ctx.fill();
+        } else {
+            // Olhos fechados (linhas)
+            ctx.strokeStyle = "black";
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(this.x - 12, this.y - 25);
+            ctx.lineTo(this.x - 4, this.y - 25);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(this.x + 4, this.y - 25);
+            ctx.lineTo(this.x + 12, this.y - 25);
+            ctx.stroke();
+        }
 
-        // Outro braço
-        ctx.beginPath(); 
-        ctx.moveTo(this.x, y+20); 
-        ctx.lineTo(this.x - this.dir*10, y+30); 
-        ctx.stroke();
+        // BOCA
+        ctx.strokeStyle = "black";
+        ctx.lineWidth = 2;
+        if (this.atacando) {
+            // Boca gritando ao atacar
+            ctx.beginPath();
+            ctx.arc(this.x, this.y - 20, 6, 0, Math.PI);
+            ctx.stroke();
+        } else if (this.pulando) {
+            // Boca surpresa ao pular
+            ctx.beginPath();
+            ctx.arc(this.x, this.y - 15, 4, 0, Math.PI * 2);
+            ctx.stroke();
+        } else {
+            // Boca normal (sorriso)
+            ctx.beginPath();
+            ctx.arc(this.x, this.y - 15, 5, 0.2, Math.PI - 0.2);
+            ctx.stroke();
+        }
 
-        // PERNAS
-        // Perna esquerda
-        ctx.beginPath();
-        ctx.moveTo(this.x, this.y);
-        ctx.lineTo(this.x - 10, this.y + 20);
-        ctx.stroke();
-        
-        // Perna direita
-        ctx.beginPath();
-        ctx.moveTo(this.x, this.y);
-        ctx.lineTo(this.x + 10, this.y + 20);
-        ctx.stroke();
-        
-        // Pés
-        ctx.beginPath();
-        ctx.moveTo(this.x - 10, this.y + 20);
-        ctx.lineTo(this.x - 15, this.y + 20);
-        ctx.stroke();
-        
-        ctx.beginPath();
-        ctx.moveTo(this.x + 10, this.y + 20);
-        ctx.lineTo(this.x + 15, this.y + 20);
-        ctx.stroke();
+        // BRAÇOS (quando atacando)
+        if (this.atacando) {
+            ctx.strokeStyle = this.cor;
+            ctx.lineWidth = 6;
+            const bracoX = this.x + this.dir * 35;
+            const bracoY = this.y - 15;
+            ctx.beginPath();
+            ctx.moveTo(this.x + this.dir * 10, this.y - 15);
+            ctx.lineTo(bracoX, bracoY);
+            ctx.stroke();
+            
+            // "Punho" do cocô
+            ctx.fillStyle = this.cor;
+            ctx.beginPath();
+            ctx.arc(bracoX, bracoY, 8, 0, Math.PI * 2);
+            ctx.fill();
+        }
     }
 
     reset() {
@@ -258,6 +376,8 @@ class Lutador {
         this.atacando = false;
         this.tempoAtaque = 0;
         this.ultimoDano = 0;
+        this.olhosAbertos = true;
+        this.tempoPiscar = 0;
     }
 }
 
@@ -272,14 +392,14 @@ addEventListener("keydown",e=>keys[e.key]=true);
 addEventListener("keyup",e=>keys[e.key]=false);
 
 /* ================= PLAYERS ================= */
-const p1 = new Lutador(250,"cyan",{esq:"a",dir:"d",pulo:"w",atk:"f"},1,"p1");
-const p2 = new Lutador(650,"red",{esq:"ArrowLeft",dir:"ArrowRight",pulo:"ArrowUp",atk:"Enter"},-1,"p2");
+const p1 = new LutadorCoco(250,"#8B7355","cyan",{esq:"a",dir:"d",pulo:"w",atk:"f"},1,"p1");
+const p2 = new LutadorCoco(650,"#8B7355","red",{esq:"ArrowLeft",dir:"ArrowRight",pulo:"ArrowUp",atk:"Enter"},-1,"p2");
 
 /* ================= FIREBASE SYNC ================= */
 let estouMorto = false;
 
 function enviarPosicao(j){
-    if (!j.vivo) return; // Não envia posição se morto
+    if (!j.vivo) return;
     
     db.ref("jogo/"+meuId).set({
         x: j.x, 
@@ -288,7 +408,8 @@ function enviarPosicao(j){
         dir: j.dir,
         atacando: j.atacando,
         vivo: j.vivo,
-        pulando: j.pulando
+        pulando: j.pulando,
+        olhosAbertos: j.olhosAbertos
     });
 }
 
@@ -318,9 +439,11 @@ db.ref("dano").on("value", s => {
     
     const jogador = meuId === "p1" ? p1 : p2;
     jogador.receberDano(d.valor);
+    jogador.olhosAbertos = false; // Pisca ao levar dano
+    setTimeout(() => jogador.olhosAbertos = true, 200);
 });
 
-// Escuta por atualizações de vida diretas
+// Escuta por atualizações de vida
 db.ref("vida/"+meuId).on("value", s => {
     const vida = s.val();
     if (vida !== null && vida !== undefined) {
@@ -354,20 +477,18 @@ db.ref("jogo/"+inimigoId).on("value", s => {
     
     const inimigo = inimigoId === "p1" ? p1 : p2;
     
-    // Não sobrescreve se estiver morto localmente (a menos que o Firebase também diga que está morto)
     if (inimigo.vivo || d.vivo === false) {
         inimigo.x = d.x || inimigo.x;
         inimigo.y = d.y || inimigo.y;
         inimigo.dir = d.dir || inimigo.dir;
         inimigo.atacando = d.atacando || false;
         inimigo.pulando = d.pulando || false;
+        inimigo.olhosAbertos = d.olhosAbertos !== undefined ? d.olhosAbertos : inimigo.olhosAbertos;
         
-        // Sincroniza vida se for menor
         if (d.vida !== undefined && d.vida < inimigo.vida) {
             inimigo.vida = d.vida;
         }
         
-        // Sincroniza estado de vida
         if (d.vivo === false) {
             inimigo.vivo = false;
             inimigo.vida = 0;
@@ -379,34 +500,56 @@ db.ref("jogo/"+inimigoId).on("value", s => {
 function barras(){
     // Barra de vida P1
     ctx.fillStyle = "#333";
-    ctx.fillRect(50, 20, 200, 15);
+    ctx.fillRect(50, 20, 200, 20);
     ctx.fillStyle = "cyan";
-    ctx.fillRect(50, 20, p1.vida*2, 15);
+    ctx.fillRect(50, 20, p1.vida*2, 20);
     
     // Barra de vida P2
     ctx.fillStyle = "#333";
-    ctx.fillRect(650, 20, 200, 15);
+    ctx.fillRect(650, 20, 200, 20);
     ctx.fillStyle = "red";
-    ctx.fillRect(650, 20, p2.vida*2, 15);
+    ctx.fillRect(650, 20, p2.vida*2, 20);
     
     // Texto de vida
     ctx.fillStyle = "white";
-    ctx.font = "12px Arial";
-    ctx.fillText(`P1: ${p1.vida}`, 50, 40);
-    ctx.fillText(`P2: ${p2.vida}`, 650, 40);
+    ctx.font = "14px Arial";
+    ctx.fillText(`P1: ${p1.vida}`, 50, 45);
+    ctx.fillText(`P2: ${p2.vida}`, 650, 45);
     
     // Bordas
     ctx.strokeStyle = "white";
     ctx.lineWidth = 2;
-    ctx.strokeRect(50, 20, 200, 15);
-    ctx.strokeRect(650, 20, 200, 15);
+    ctx.strokeRect(50, 20, 200, 20);
+    ctx.strokeRect(650, 20, 200, 20);
+    
+    // Desenha emoticon de cocô pequeno ao lado das barras
+    ctx.fillStyle = "#8B7355";
+    ctx.beginPath();
+    ctx.ellipse(40, 30, 8, 5, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(40, 25, 6, 4, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(40, 21, 4, 3, 0, 0, Math.PI * 2);
+    ctx.fill();
+    
+    ctx.beginPath();
+    ctx.ellipse(860, 30, 8, 5, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(860, 25, 6, 4, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(860, 21, 4, 3, 0, 0, Math.PI * 2);
+    ctx.fill();
 }
 
 function fim(){
     ctx.fillStyle = "white";
     ctx.font = "26px Arial";
     ctx.textAlign = "center";
-    const vencedor = p1.vivo ? "Player 1 venceu!" : "Player 2 venceu!";
+    const vencedor = p1.vivo ? "Player 1 venceu! 💩🎌" : "Player 2 venceu! 💩🎌";
     ctx.fillText(vencedor, 450, 180);
     ctx.font = "16px Arial";
     ctx.fillText("Pressione R para recomeçar", 450, 210);
@@ -419,7 +562,6 @@ function loop(){
 
     barras();
 
-    // Controle local
     const jogadorLocal = meuId === "p1" ? p1 : p2;
     const inimigoLocal = meuId === "p1" ? p2 : p1;
     
@@ -430,10 +572,8 @@ function loop(){
         jogadorLocal.fisica();
     }
     
-    // Aplica física para o inimigo
     inimigoLocal.fisica();
 
-    // Envia posição se estiver vivo
     if (jogadorLocal.vivo) {
         enviarPosicao(jogadorLocal);
     }
@@ -444,12 +584,10 @@ function loop(){
     if(!p1.vivo || !p2.vivo){
         fim();
         if(keys["r"] || keys["R"]){
-            // Reinicia localmente
             p1.reset();
             p2.reset();
             estouMorto = false;
             
-            // Envia reinício para Firebase
             db.ref("reinicio").set({
                 tempo: Date.now(),
                 jogador: meuId
@@ -472,8 +610,8 @@ db.ref("reinicio").on("value", s => {
 
 // Inicializa dados no Firebase
 db.ref("jogo").set({
-    p1: {x: 250, y: CHAO, vida: 100, dir: 1, atacando: false, vivo: true, pulando: false},
-    p2: {x: 650, y: CHAO, vida: 100, dir: -1, atacando: false, vivo: true, pulando: false}
+    p1: {x: 250, y: CHAO, vida: 100, dir: 1, atacando: false, vivo: true, pulando: false, olhosAbertos: true},
+    p2: {x: 650, y: CHAO, vida: 100, dir: -1, atacando: false, vivo: true, pulando: false, olhosAbertos: true}
 });
 
 db.ref("vida").set({
