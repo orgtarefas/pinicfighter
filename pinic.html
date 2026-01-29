@@ -88,6 +88,7 @@ class Lutador {
         this.vida = 100;
         this.vivo = true;
         this.ctrl = controles;
+        this.ultimoAtaque = 0; // Para evitar dano contínuo
     }
 
     mover(keys) {
@@ -105,11 +106,12 @@ class Lutador {
     }
 
     atacar(keys, inimigo) {
-        if (!this.vivo) return;
+        if (!this.vivo || !inimigo.vivo) return;
 
         if (keys[this.ctrl.atk] && !this.atacando) {
             this.atacando = true;
             this.tempoAtaque = 10;
+            this.ultimoAtaque = Date.now();
 
             const hit = {
                 x: this.x + this.dir * 25,
@@ -129,15 +131,22 @@ class Lutador {
     }
 
     receberDano(v) {
+        if (!this.vivo) return;
         this.vida -= v;
         if (this.vida <= 0) {
             this.vida = 0;
             this.vivo = false;
+            // Empurra o jogador morto para o chão
+            this.y = CHAO;
+            this.vy = 0;
         }
     }
 
     fisica() {
-        if (!this.vivo) { this.y = CHAO + 20; return; }
+        if (!this.vivo) { 
+            this.y = CHAO + 20; 
+            return; 
+        }
         this.y += this.vy;
         this.vy += GRAVIDADE;
         if (this.y >= CHAO) {
@@ -156,21 +165,74 @@ class Lutador {
         ctx.lineWidth = 4;
 
         if (!this.vivo) {
+            // Desenha corpo morto
             ctx.beginPath();
             ctx.moveTo(this.x - 30, this.y);
             ctx.lineTo(this.x + 30, this.y);
+            ctx.stroke();
+            
+            // Desenha pernas mortas
+            ctx.beginPath();
+            ctx.moveTo(this.x - 10, this.y);
+            ctx.lineTo(this.x - 20, this.y + 30);
+            ctx.stroke();
+            
+            ctx.beginPath();
+            ctx.moveTo(this.x + 10, this.y);
+            ctx.lineTo(this.x + 20, this.y + 30);
             ctx.stroke();
             return;
         }
 
         const y = this.y - this.altura;
-        ctx.beginPath(); ctx.moveTo(this.x, y); ctx.lineTo(this.x, this.y); ctx.stroke();
-        ctx.beginPath(); ctx.arc(this.x, y - 10, 10, 0, Math.PI*2); ctx.stroke();
+        
+        // Tronco
+        ctx.beginPath(); 
+        ctx.moveTo(this.x, y); 
+        ctx.lineTo(this.x, this.y); 
+        ctx.stroke();
+        
+        // Cabeça
+        ctx.beginPath(); 
+        ctx.arc(this.x, y - 10, 10, 0, Math.PI*2); 
+        ctx.stroke();
 
+        // Braço atacante/defensivo
         const bx = this.x + this.dir * (this.atacando ? 30 : 15);
-        ctx.beginPath(); ctx.moveTo(this.x, y+20); ctx.lineTo(bx, y+30); ctx.stroke();
+        ctx.beginPath(); 
+        ctx.moveTo(this.x, y+20); 
+        ctx.lineTo(bx, y+30); 
+        ctx.stroke();
 
-        ctx.beginPath(); ctx.moveTo(this.x, y+20); ctx.lineTo(this.x - this.dir*10, y+30); ctx.stroke();
+        // Outro braço
+        ctx.beginPath(); 
+        ctx.moveTo(this.x, y+20); 
+        ctx.lineTo(this.x - this.dir*10, y+30); 
+        ctx.stroke();
+
+        // PERNAS - adicionadas
+        // Perna esquerda
+        ctx.beginPath();
+        ctx.moveTo(this.x, this.y);
+        ctx.lineTo(this.x - 10, this.y + 20);
+        ctx.stroke();
+        
+        // Perna direita
+        ctx.beginPath();
+        ctx.moveTo(this.x, this.y);
+        ctx.lineTo(this.x + 10, this.y + 20);
+        ctx.stroke();
+        
+        // Pés
+        ctx.beginPath();
+        ctx.moveTo(this.x - 10, this.y + 20);
+        ctx.lineTo(this.x - 15, this.y + 20);
+        ctx.stroke();
+        
+        ctx.beginPath();
+        ctx.moveTo(this.x + 10, this.y + 20);
+        ctx.lineTo(this.x + 15, this.y + 20);
+        ctx.stroke();
     }
 
     reset() {
@@ -179,6 +241,8 @@ class Lutador {
         this.vy = 0;
         this.vida = 100;
         this.vivo = true;
+        this.atacando = false;
+        this.tempoAtaque = 0;
     }
 }
 
@@ -199,32 +263,50 @@ const p2 = new Lutador(650,"red",{esq:"ArrowLeft",dir:"ArrowRight",pulo:"ArrowUp
 /* ================= FIREBASE SYNC ================= */
 function enviar(j){
     db.ref("jogo/"+meuId).set({
-        x:j.x,y:j.y,vida:j.vida,dir:j.dir,
-        atacando:j.atacando,vivo:j.vivo
+        x:j.x, 
+        y:j.y, 
+        vida:j.vida, 
+        dir:j.dir,
+        atacando:j.atacando,
+        vivo:j.vivo,
+        pulando:j.pulando
     });
 }
 
+let dadosInimigo = null;
 db.ref("jogo/"+inimigoId).on("value",s=>{
-    const d=s.val(); if(!d) return;
-    const i=inimigoId==="p1"?p1:p2;
-    Object.assign(i,d);
+    dadosInimigo = s.val();
 });
 
 /* ================= UI ================= */
 function barras(){
-    ctx.fillStyle="red";
-    ctx.fillRect(50,20,p1.vida*2,15);
-    ctx.fillRect(900-50-p2.vida*2,20,p2.vida*2,15);
+    // Barra de vida P1
+    ctx.fillStyle = "#333";
+    ctx.fillRect(50, 20, 200, 15);
+    ctx.fillStyle = "cyan";
+    ctx.fillRect(50, 20, p1.vida*2, 15);
+    
+    // Barra de vida P2
+    ctx.fillStyle = "#333";
+    ctx.fillRect(650, 20, 200, 15);
+    ctx.fillStyle = "red";
+    ctx.fillRect(650, 20, p2.vida*2, 15);
+    
+    // Bordas
+    ctx.strokeStyle = "white";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(50, 20, 200, 15);
+    ctx.strokeRect(650, 20, 200, 15);
 }
 
 function fim(){
-    ctx.fillStyle="white";
-    ctx.font="26px Arial";
-    ctx.textAlign="center";
-    const vencedor=p1.vivo?"Player 1 venceu":"Player 2 venceu";
-    ctx.fillText(vencedor,450,180);
-    ctx.font="16px Arial";
-    ctx.fillText("Pressione R para recomeçar",450,210);
+    ctx.fillStyle = "white";
+    ctx.font = "26px Arial";
+    ctx.textAlign = "center";
+    const vencedor = p1.vivo ? "Player 1 venceu!" : "Player 2 venceu!";
+    ctx.fillText(vencedor, 450, 180);
+    ctx.font = "16px Arial";
+    ctx.fillText("Pressione R para recomeçar", 450, 210);
 }
 
 /* ================= LOOP ================= */
@@ -234,19 +316,77 @@ function loop(){
 
     barras();
 
-    if(meuId==="p1"){ p1.mover(keys); p1.pular(keys); p1.atacar(keys,p2); p1.fisica(); enviar(p1);}
-    if(meuId==="p2"){ p2.mover(keys); p2.pular(keys); p2.atacar(keys,p1); p2.fisica(); enviar(p2);}
+    // Controle local
+    const jogadorLocal = meuId === "p1" ? p1 : p2;
+    const inimigoLocal = meuId === "p1" ? p2 : p1;
+    
+    if (jogadorLocal.vivo) {
+        jogadorLocal.mover(keys);
+        jogadorLocal.pular(keys);
+        jogadorLocal.atacar(keys, inimigoLocal);
+        jogadorLocal.fisica();
+    }
+    
+    // Aplica dados recebidos do inimigo (mas não sobrescreve o estado de vida)
+    if (dadosInimigo) {
+        const inimigoRemoto = inimigoId === "p1" ? p1 : p2;
+        
+        // Guarda o estado de vida local antes de atualizar
+        const vidaLocal = inimigoRemoto.vivo;
+        
+        // Atualiza posição e outros dados
+        inimigoRemoto.x = dadosInimigo.x || inimigoRemoto.x;
+        inimigoRemoto.y = dadosInimigo.y || inimigoRemoto.y;
+        inimigoRemoto.dir = dadosInimigo.dir || inimigoRemoto.dir;
+        inimigoRemoto.atacando = dadosInimigo.atacando || false;
+        inimigoRemoto.pulando = dadosInimigo.pulando || false;
+        
+        // Atualiza vida apenas se for menor que a local (para evitar regeneração)
+        if (dadosInimigo.vida !== undefined && dadosInimigo.vida < inimigoRemoto.vida) {
+            inimigoRemoto.vida = dadosInimigo.vida;
+        }
+        
+        // Atualiza estado de vida apenas se o inimigo remoto estiver morto
+        if (dadosInimigo.vivo === false) {
+            inimigoRemoto.vivo = false;
+            inimigoRemoto.vida = 0;
+        }
+        
+        // Aplica física para o inimigo remoto
+        if (inimigoRemoto.vivo) {
+            inimigoRemoto.fisica();
+        }
+    }
 
-    p1.desenhar(); p2.desenhar();
+    // Envia dados locais
+    enviar(jogadorLocal);
 
-    if(!p1.vivo||!p2.vivo){
+    p1.desenhar();
+    p2.desenhar();
+
+    if(!p1.vivo || !p2.vivo){
         fim();
-        if(keys["r"]||keys["R"]){ p1.reset(); p2.reset(); }
+        if(keys["r"] || keys["R"]){
+            p1.reset();
+            p2.reset();
+            // Limpa dados do Firebase para reinício sincronizado
+            db.ref("jogo").set({
+                p1: {x: 250, y: CHAO, vida: 100, dir: 1, atacando: false, vivo: true, pulando: false},
+                p2: {x: 650, y: CHAO, vida: 100, dir: -1, atacando: false, vivo: true, pulando: false}
+            });
+        }
     }
 
     requestAnimationFrame(loop);
 }
-loop();
+
+// Inicializa dados no Firebase
+db.ref("jogo").set({
+    p1: {x: 250, y: CHAO, vida: 100, dir: 1, atacando: false, vivo: true, pulando: false},
+    p2: {x: 650, y: CHAO, vida: 100, dir: -1, atacando: false, vivo: true, pulando: false}
+});
+
+fundo.onload = loop;
 </script>
 </body>
 </html>
