@@ -11,7 +11,7 @@ const LIM_DIR = canvas.width - 40;
 let jogoTerminou = false;
 const keys = {};
 
-// Carrega imagem de fundo
+// Carrega imagem de fundo - CAMINHO CORRETO
 const fundo = new Image();
 fundo.src = "imagens/fundo.png";
 
