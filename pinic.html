@@ -2,7 +2,7 @@
 <html lang="pt-br">
 <head>
 <meta charset="UTF-8">
-<title>Jogo de Luta - Bonecos</title>
+<title>Pinico Fighter</title>
 
 <style>
     body {
@@ -10,23 +10,21 @@
         background: #111;
         display: flex;
         flex-direction: column;
-        justify-content: center;
         align-items: center;
+        justify-content: center;
         height: 100vh;
-        color: white;
         font-family: Arial;
-    }
-
-    canvas {
-        border: 3px solid #0f0;
-    }
-
-    .logo {
-        margin-bottom: 10px;
+        color: white;
     }
 
     .logo img {
         max-width: 240px;
+        margin-bottom: 10px;
+    }
+
+    canvas {
+        border: 3px solid #0f0;
+        background: #222;
     }
 </style>
 </head>
@@ -39,7 +37,31 @@
 
 <canvas id="game" width="900" height="400"></canvas>
 
+<!-- FIREBASE (COMPAT) -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
 <script>
+/* ================= FIREBASE ================= */
+const firebaseConfig = {
+  apiKey: "AIzaSyDy_gqNrFR7KmMonXp7KfgRc15UVj0g3Nw",
+  authDomain: "pinico-fighter.firebaseapp.com",
+  databaseURL: "https://pinico-fighter-default-rtdb.firebaseio.com",
+  projectId: "pinico-fighter",
+  storageBucket: "pinico-fighter.firebasestorage.app",
+  messagingSenderId: "152199667347",
+  appId: "1:152199667347:web:9c74188c88bdee8633f766"
+};
+
+firebase.initializeApp(firebaseConfig);
+const database = firebase.database();
+
+/* ================= DEFINIÇÃO DE PLAYER ================= */
+const meuPlayer = prompt("Digite 1 para Player 1 ou 2 para Player 2");
+const meuId = meuPlayer === "1" ? "p1" : "p2";
+const inimigoId = meuId === "p1" ? "p2" : "p1";
+
+/* ================= CANVAS ================= */
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 
@@ -51,19 +73,18 @@ const CHAO = 320;
 const LIMITE_ESQ = 40;
 const LIMITE_DIR = canvas.width - 40;
 
+/* ================= LUTADOR ================= */
 class Lutador {
     constructor(x, cor, controles, direcao) {
-        this.inicialX = x;
         this.x = x;
         this.y = CHAO;
         this.vy = 0;
         this.cor = cor;
         this.altura = 60;
-        this.pulando = false;
         this.velocidade = 4;
         this.direcao = direcao;
+        this.pulando = false;
         this.atacando = false;
-        this.tempoAtaque = 0;
         this.vida = 100;
         this.vivo = true;
         this.controles = controles;
@@ -79,52 +100,17 @@ class Lutador {
             this.x += this.velocidade;
             this.direcao = 1;
         }
-        if (this.x < LIMITE_ESQ) this.x = LIMITE_ESQ;
-        if (this.x > LIMITE_DIR) this.x = LIMITE_DIR;
+        this.x = Math.max(LIMITE_ESQ, Math.min(LIMITE_DIR, this.x));
     }
 
     pular(keys) {
-        if (!this.vivo) return;
         if (keys[this.controles.pulo] && !this.pulando) {
             this.vy = -15;
             this.pulando = true;
         }
     }
 
-    atacar(keys, inimigo) {
-        if (!this.vivo) return;
-        if (keys[this.controles.ataque] && !this.atacando) {
-            this.atacando = true;
-            this.tempoAtaque = 10;
-            const hitbox = {
-                x: this.x + (this.direcao * 25),
-                y: this.y - this.altura + 20,
-                w: 25,
-                h: 20
-            };
-            if (colisao(hitbox, inimigo.getHitbox())) {
-                inimigo.receberDano(10);
-            }
-        }
-        if (this.atacando) {
-            this.tempoAtaque--;
-            if (this.tempoAtaque <= 0) this.atacando = false;
-        }
-    }
-
-    receberDano(valor) {
-        this.vida -= valor;
-        if (this.vida <= 0) {
-            this.vida = 0;
-            this.vivo = false;
-        }
-    }
-
     aplicarFisica() {
-        if (!this.vivo) {
-            this.y = CHAO + 20;
-            return;
-        }
         this.y += this.vy;
         this.vy += GRAVIDADE;
         if (this.y >= CHAO) {
@@ -132,15 +118,6 @@ class Lutador {
             this.vy = 0;
             this.pulando = false;
         }
-    }
-
-    getHitbox() {
-        return {
-            x: this.x - 10,
-            y: this.y - this.altura - 10,
-            w: 20,
-            h: this.altura + 20
-        };
     }
 
     desenhar() {
@@ -166,103 +143,72 @@ class Lutador {
         ctx.arc(this.x, corpoY - 10, 10, 0, Math.PI * 2);
         ctx.stroke();
 
-        let bracoX = this.x + (this.direcao * (this.atacando ? 30 : 15));
         ctx.beginPath();
         ctx.moveTo(this.x, corpoY + 20);
-        ctx.lineTo(bracoX, corpoY + 30);
+        ctx.lineTo(this.x + this.direcao * 20, corpoY + 30);
         ctx.stroke();
 
         ctx.beginPath();
         ctx.moveTo(this.x, corpoY + 20);
-        ctx.lineTo(this.x - (this.direcao * 10), corpoY + 30);
+        ctx.lineTo(this.x - this.direcao * 10, corpoY + 30);
         ctx.stroke();
-
-        ctx.beginPath();
-        ctx.moveTo(this.x, this.y);
-        ctx.lineTo(this.x - 10, this.y + 20);
-        ctx.moveTo(this.x, this.y);
-        ctx.lineTo(this.x + 10, this.y + 20);
-        ctx.stroke();
-    }
-
-    reset() {
-        this.x = this.inicialX;
-        this.y = CHAO;
-        this.vy = 0;
-        this.vida = 100;
-        this.vivo = true;
     }
 }
 
-function colisao(a, b) {
-    return (
-        a.x < b.x + b.w &&
-        a.x + a.w > b.x &&
-        a.y < b.y + b.h &&
-        a.y + a.h > b.y
-    );
-}
-
+/* ================= CONTROLES ================= */
 const keys = {};
 document.addEventListener("keydown", e => keys[e.key] = true);
 document.addEventListener("keyup", e => keys[e.key] = false);
 
-const p1 = new Lutador(250, "cyan", { esq: "a", dir: "d", pulo: "w", ataque: "f" }, 1);
-const p2 = new Lutador(650, "red", { esq: "ArrowLeft", dir: "ArrowRight", pulo: "ArrowUp", ataque: "Enter" }, -1);
+/* ================= JOGADORES ================= */
+const p1 = new Lutador(250, "cyan", { esq: "a", dir: "d", pulo: "w" }, 1);
+const p2 = new Lutador(650, "red", { esq: "ArrowLeft", dir: "ArrowRight", pulo: "ArrowUp" }, -1);
 
-function desenharBarras() {
-    ctx.fillStyle = "red";
-    ctx.fillRect(50, 20, p1.vida * 2, 15);
-    ctx.fillRect(900 - 50 - p2.vida * 2, 20, p2.vida * 2, 15);
+/* ================= FIREBASE SYNC ================= */
+function enviarEstado(j) {
+    database.ref("jogo/" + meuId).set({
+        x: j.x,
+        y: j.y,
+        vida: j.vida,
+        direcao: j.direcao,
+        vivo: j.vivo
+    });
 }
 
-function desenharMensagemFim() {
-    ctx.fillStyle = "white";
-    ctx.font = "30px Arial";
-    ctx.textAlign = "center";
-    ctx.fillText("FIM DE JOGO", canvas.width / 2, 180);
-    ctx.font = "18px Arial";
-    ctx.fillText("Pressione R para recomeçar", canvas.width / 2, 220);
-}
+database.ref("jogo/" + inimigoId).on("value", snap => {
+    const d = snap.val();
+    if (!d) return;
+    const inimigo = inimigoId === "p1" ? p1 : p2;
+    inimigo.x = d.x;
+    inimigo.y = d.y;
+    inimigo.vida = d.vida;
+    inimigo.direcao = d.direcao;
+    inimigo.vivo = d.vivo;
+});
 
+/* ================= LOOP ================= */
 function loop() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // FUNDO
-const fundoAltura = 180; // altura visível do pinico
-const fundoY = CHAO - 40; // posição nos pés dos lutadores
+    // Fundo (nos pés)
+    ctx.drawImage(fundo, 0, CHAO - 40, canvas.width, 180);
 
-ctx.drawImage(
-    fundo,
-    0,
-    fundoY,
-    canvas.width,
-    fundoAltura
-);
-
-
-
-    desenharBarras();
-
-    p1.mover(keys);
-    p1.pular(keys);
-    p1.atacar(keys, p2);
-    p1.aplicarFisica();
-    p1.desenhar();
-
-    p2.mover(keys);
-    p2.pular(keys);
-    p2.atacar(keys, p1);
-    p2.aplicarFisica();
-    p2.desenhar();
-
-    if (!p1.vivo || !p2.vivo) {
-        desenharMensagemFim();
-        if (keys["r"] || keys["R"]) {
-            p1.reset();
-            p2.reset();
-        }
+    if (meuId === "p1") {
+        p1.mover(keys);
+        p1.pular(keys);
+        p1.aplicarFisica();
+        enviarEstado(p1);
     }
+
+    if (meuId === "p2") {
+        p2.mover(keys);
+        p2.pular(keys);
+        p2.aplicarFisica();
+        enviarEstado(p2);
+    }
+
+    p1.desenhar();
+    p2.desenhar();
 
     requestAnimationFrame(loop);
 }
