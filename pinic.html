@@ -73,7 +73,8 @@ const LIM_DIR = canvas.width - 40;
 
 /* ================= LUTADOR ================= */
 class Lutador {
-    constructor(x, cor, controles, direcao) {
+    constructor(x, cor, controles, direcao, id) {
+        this.id = id;
         this.inicialX = x;
         this.x = x;
         this.y = CHAO;
@@ -88,7 +89,7 @@ class Lutador {
         this.vida = 100;
         this.vivo = true;
         this.ctrl = controles;
-        this.ultimoAtaque = 0; // Para evitar dano contínuo
+        this.ultimoDano = 0;
     }
 
     mover(keys) {
@@ -111,7 +112,6 @@ class Lutador {
         if (keys[this.ctrl.atk] && !this.atacando) {
             this.atacando = true;
             this.tempoAtaque = 10;
-            this.ultimoAtaque = Date.now();
 
             const hit = {
                 x: this.x + this.dir * 25,
@@ -121,6 +121,8 @@ class Lutador {
             };
 
             if (colisao(hit, inimigo.hitbox())) {
+                // Envia o dano para o Firebase
+                enviarDano(inimigo.id, 10);
                 inimigo.receberDano(10);
             }
         }
@@ -132,19 +134,31 @@ class Lutador {
 
     receberDano(v) {
         if (!this.vivo) return;
+        
+        // Evita dano múltiplo rápido
+        const agora = Date.now();
+        if (agora - this.ultimoDano < 500) return;
+        this.ultimoDano = agora;
+        
         this.vida -= v;
         if (this.vida <= 0) {
             this.vida = 0;
             this.vivo = false;
-            // Empurra o jogador morto para o chão
-            this.y = CHAO;
+            this.y = CHAO + 20;
             this.vy = 0;
+            
+            // Envia morte para Firebase
+            enviarMorte(this.id);
         }
+        
+        // Envia atualização de vida para Firebase
+        enviarVida(this.id, this.vida);
     }
 
     fisica() {
         if (!this.vivo) { 
             this.y = CHAO + 20; 
+            this.vy = 0;
             return; 
         }
         this.y += this.vy;
@@ -210,7 +224,7 @@ class Lutador {
         ctx.lineTo(this.x - this.dir*10, y+30); 
         ctx.stroke();
 
-        // PERNAS - adicionadas
+        // PERNAS
         // Perna esquerda
         ctx.beginPath();
         ctx.moveTo(this.x, this.y);
@@ -243,6 +257,7 @@ class Lutador {
         this.vivo = true;
         this.atacando = false;
         this.tempoAtaque = 0;
+        this.ultimoDano = 0;
     }
 }
 
@@ -257,25 +272,107 @@ addEventListener("keydown",e=>keys[e.key]=true);
 addEventListener("keyup",e=>keys[e.key]=false);
 
 /* ================= PLAYERS ================= */
-const p1 = new Lutador(250,"cyan",{esq:"a",dir:"d",pulo:"w",atk:"f"},1);
-const p2 = new Lutador(650,"red",{esq:"ArrowLeft",dir:"ArrowRight",pulo:"ArrowUp",atk:"Enter"},-1);
+const p1 = new Lutador(250,"cyan",{esq:"a",dir:"d",pulo:"w",atk:"f"},1,"p1");
+const p2 = new Lutador(650,"red",{esq:"ArrowLeft",dir:"ArrowRight",pulo:"ArrowUp",atk:"Enter"},-1,"p2");
 
 /* ================= FIREBASE SYNC ================= */
-function enviar(j){
+let estouMorto = false;
+
+function enviarPosicao(j){
+    if (!j.vivo) return; // Não envia posição se morto
+    
     db.ref("jogo/"+meuId).set({
-        x:j.x, 
-        y:j.y, 
-        vida:j.vida, 
-        dir:j.dir,
-        atacando:j.atacando,
-        vivo:j.vivo,
-        pulando:j.pulando
+        x: j.x, 
+        y: j.y, 
+        vida: j.vida, 
+        dir: j.dir,
+        atacando: j.atacando,
+        vivo: j.vivo,
+        pulando: j.pulando
     });
 }
 
-let dadosInimigo = null;
-db.ref("jogo/"+inimigoId).on("value",s=>{
-    dadosInimigo = s.val();
+function enviarDano(idAlvo, dano) {
+    db.ref("dano").set({
+        alvo: idAlvo,
+        valor: dano,
+        tempo: Date.now()
+    });
+}
+
+function enviarVida(id, vida) {
+    db.ref("vida/"+id).set(vida);
+}
+
+function enviarMorte(id) {
+    db.ref("morte").set({
+        id: id,
+        tempo: Date.now()
+    });
+}
+
+// Escuta por danos
+db.ref("dano").on("value", s => {
+    const d = s.val();
+    if (!d || d.alvo !== meuId) return;
+    
+    const jogador = meuId === "p1" ? p1 : p2;
+    jogador.receberDano(d.valor);
+});
+
+// Escuta por atualizações de vida diretas
+db.ref("vida/"+meuId).on("value", s => {
+    const vida = s.val();
+    if (vida !== null && vida !== undefined) {
+        const jogador = meuId === "p1" ? p1 : p2;
+        if (vida < jogador.vida) {
+            jogador.vida = vida;
+            if (jogador.vida <= 0) {
+                jogador.vida = 0;
+                jogador.vivo = false;
+                estouMorto = true;
+            }
+        }
+    }
+});
+
+// Escuta por mortes
+db.ref("morte").on("value", s => {
+    const m = s.val();
+    if (!m) return;
+    
+    const jogador = m.id === "p1" ? p1 : p2;
+    jogador.vida = 0;
+    jogador.vivo = false;
+    jogador.y = CHAO + 20;
+});
+
+// Escuta por posição do inimigo
+db.ref("jogo/"+inimigoId).on("value", s => {
+    const d = s.val();
+    if (!d) return;
+    
+    const inimigo = inimigoId === "p1" ? p1 : p2;
+    
+    // Não sobrescreve se estiver morto localmente (a menos que o Firebase também diga que está morto)
+    if (inimigo.vivo || d.vivo === false) {
+        inimigo.x = d.x || inimigo.x;
+        inimigo.y = d.y || inimigo.y;
+        inimigo.dir = d.dir || inimigo.dir;
+        inimigo.atacando = d.atacando || false;
+        inimigo.pulando = d.pulando || false;
+        
+        // Sincroniza vida se for menor
+        if (d.vida !== undefined && d.vida < inimigo.vida) {
+            inimigo.vida = d.vida;
+        }
+        
+        // Sincroniza estado de vida
+        if (d.vivo === false) {
+            inimigo.vivo = false;
+            inimigo.vida = 0;
+        }
+    }
 });
 
 /* ================= UI ================= */
@@ -291,6 +388,12 @@ function barras(){
     ctx.fillRect(650, 20, 200, 15);
     ctx.fillStyle = "red";
     ctx.fillRect(650, 20, p2.vida*2, 15);
+    
+    // Texto de vida
+    ctx.fillStyle = "white";
+    ctx.font = "12px Arial";
+    ctx.fillText(`P1: ${p1.vida}`, 50, 40);
+    ctx.fillText(`P2: ${p2.vida}`, 650, 40);
     
     // Bordas
     ctx.strokeStyle = "white";
@@ -327,39 +430,13 @@ function loop(){
         jogadorLocal.fisica();
     }
     
-    // Aplica dados recebidos do inimigo (mas não sobrescreve o estado de vida)
-    if (dadosInimigo) {
-        const inimigoRemoto = inimigoId === "p1" ? p1 : p2;
-        
-        // Guarda o estado de vida local antes de atualizar
-        const vidaLocal = inimigoRemoto.vivo;
-        
-        // Atualiza posição e outros dados
-        inimigoRemoto.x = dadosInimigo.x || inimigoRemoto.x;
-        inimigoRemoto.y = dadosInimigo.y || inimigoRemoto.y;
-        inimigoRemoto.dir = dadosInimigo.dir || inimigoRemoto.dir;
-        inimigoRemoto.atacando = dadosInimigo.atacando || false;
-        inimigoRemoto.pulando = dadosInimigo.pulando || false;
-        
-        // Atualiza vida apenas se for menor que a local (para evitar regeneração)
-        if (dadosInimigo.vida !== undefined && dadosInimigo.vida < inimigoRemoto.vida) {
-            inimigoRemoto.vida = dadosInimigo.vida;
-        }
-        
-        // Atualiza estado de vida apenas se o inimigo remoto estiver morto
-        if (dadosInimigo.vivo === false) {
-            inimigoRemoto.vivo = false;
-            inimigoRemoto.vida = 0;
-        }
-        
-        // Aplica física para o inimigo remoto
-        if (inimigoRemoto.vivo) {
-            inimigoRemoto.fisica();
-        }
-    }
+    // Aplica física para o inimigo
+    inimigoLocal.fisica();
 
-    // Envia dados locais
-    enviar(jogadorLocal);
+    // Envia posição se estiver vivo
+    if (jogadorLocal.vivo) {
+        enviarPosicao(jogadorLocal);
+    }
 
     p1.desenhar();
     p2.desenhar();
@@ -367,12 +444,15 @@ function loop(){
     if(!p1.vivo || !p2.vivo){
         fim();
         if(keys["r"] || keys["R"]){
+            // Reinicia localmente
             p1.reset();
             p2.reset();
-            // Limpa dados do Firebase para reinício sincronizado
-            db.ref("jogo").set({
-                p1: {x: 250, y: CHAO, vida: 100, dir: 1, atacando: false, vivo: true, pulando: false},
-                p2: {x: 650, y: CHAO, vida: 100, dir: -1, atacando: false, vivo: true, pulando: false}
+            estouMorto = false;
+            
+            // Envia reinício para Firebase
+            db.ref("reinicio").set({
+                tempo: Date.now(),
+                jogador: meuId
             });
         }
     }
@@ -380,10 +460,25 @@ function loop(){
     requestAnimationFrame(loop);
 }
 
+// Escuta por reinício
+db.ref("reinicio").on("value", s => {
+    const r = s.val();
+    if (!r) return;
+    
+    p1.reset();
+    p2.reset();
+    estouMorto = false;
+});
+
 // Inicializa dados no Firebase
 db.ref("jogo").set({
     p1: {x: 250, y: CHAO, vida: 100, dir: 1, atacando: false, vivo: true, pulando: false},
     p2: {x: 650, y: CHAO, vida: 100, dir: -1, atacando: false, vivo: true, pulando: false}
+});
+
+db.ref("vida").set({
+    p1: 100,
+    p2: 100
 });
 
 fundo.onload = loop;
