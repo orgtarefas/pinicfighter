@@ -1,46 +1,52 @@
 function barras() {
+    // Barra de vida P1
     ctx.fillStyle = "#333";
     ctx.fillRect(50, 20, 200, 25);
-    ctx.fillStyle = "cyan";
+    ctx.fillStyle = p1.corSapato === "cyan" ? "cyan" : p1.cor;
     ctx.fillRect(50, 20, p1.vida * 2, 25);
     
+    // Barra de vida P2
     ctx.fillStyle = "#333";
     ctx.fillRect(650, 20, 200, 25);
-    ctx.fillStyle = "red";
+    ctx.fillStyle = p2.corSapato === "red" ? "red" : p2.cor;
     ctx.fillRect(650, 20, p2.vida * 2, 25);
     
+    // Nome do personagem
     ctx.fillStyle = "white";
     ctx.font = "16px Arial";
-    ctx.fillText(`P1: ${p1.vida}`, 50, 50);
-    ctx.fillText(`P2: ${p2.vida}`, 650, 50);
+    ctx.fillText(`${p1.tipo.toUpperCase()}: ${p1.vida}`, 50, 50);
+    ctx.fillText(`${p2.tipo.toUpperCase()}: ${p2.vida}`, 650, 50);
     
+    // Controles
     ctx.font = "14px Arial";
-    ctx.fillText("Soco: F | Chute: C | Bomba: W+S", 50, 70);
-    ctx.fillText("Soco: Enter | Chute: . | Bomba: ↑+↓", 650, 70);
+    ctx.fillText("Soco: F | Chute: C | Abaixar: S | Deslizar: S+C", 50, 70);
+    ctx.fillText("Soco: Enter | Chute: . | Abaixar: ↓ | Deslizar: ↓+.", 650, 70);
     
+    // Instrução do poder
     ctx.font = "12px Arial";
-    ctx.fillText("Pular + Baixo no ar = Bomba de Cocô!", 350, 390);
+    ctx.fillText("Pular + Baixo no ar = Bomba de Cocô! (Cocozin apenas)", 350, 390);
     
+    // Bordas
     ctx.strokeStyle = "white";
     ctx.lineWidth = 3;
     ctx.strokeRect(50, 20, 200, 25);
     ctx.strokeRect(650, 20, 200, 25);
-}
-
-function desenharTelaFim() {
-    ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
     
-    ctx.fillStyle = "white";
-    ctx.font = "32px Arial";
-    ctx.textAlign = "center";
+    // Desenha ícone do personagem
+    ctx.font = "20px Arial";
+    if (p1.tipo === "cocozin") {
+        ctx.fillText("💩", 20, 40);
+    } else if (p1.tipo === "ratazana") {
+        ctx.fillText("🐀", 20, 40);
+    } else if (p1.tipo === "peidovélio") {
+        ctx.fillText("💨", 20, 40);
+    }
     
-    const vencedor = p1.vivo ? "Player 1 VENCEU! 💩👑" : "Player 2 VENCEU! 💩👑";
-    ctx.fillText(vencedor, canvas.width / 2, 150);
-    
-    ctx.font = "24px Arial";
-    ctx.fillText("Pressione R para jogar novamente", canvas.width / 2, 200);
-    
-    ctx.font = "18px Arial";
-    ctx.fillText("Ambos os jogadores precisam pressionar R", canvas.width / 2, 240);
+    if (p2.tipo === "cocozin") {
+        ctx.fillText("💩", 860, 40);
+    } else if (p2.tipo === "ratazana") {
+        ctx.fillText("🐀", 860, 40);
+    } else if (p2.tipo === "peidovélio") {
+        ctx.fillText("💨", 860, 40);
+    }
 }
