@@ -43,8 +43,12 @@ class PersonagemBase {
         if (!this.vivo || jogoTerminou) return;
         
         // DEBUG: Verificar teclas pressionadas
-        // console.log('Teclas:', keys);
-        // console.log('Controles:', this.ctrl);
+         console.log('Teclas:', keys);
+         console.log('Controles:', this.ctrl);
+         console.log('Tecla A:', keys['a'] || keys['KeyA']);
+         console.log('Tecla D:', keys['d'] || keys['KeyD']);
+         console.log('Tecla S:', keys['s'] || keys['KeyS']);
+         console.log('Tecla W:', keys['w'] || keys['KeyW']);
         
         // NOVO: Se estiver deslizando, movimento especial
         if (this.deslizando) {
@@ -2368,6 +2372,7 @@ function criarPersonagem(tipo, x, controles, direcao, id) {
             return new Cocozin(x, "#8B7355", id === "p1" ? "cyan" : "red", controles, direcao, id);
     }
 }
+
 
 
 
