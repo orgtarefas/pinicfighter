@@ -251,3 +251,353 @@ canvas {
     margin-top: 20px;
 }
 
+
+/* ============================================ */
+/* ESTILOS ADICIONAIS PARA O PINIC FIGHTER */
+/* ============================================ */
+
+/* Estilo para botão de excluir (já tem, mas vou reforçar) */
+.btn-excluir {
+    background: linear-gradient(to bottom, #ff4444, #cc0000);
+    color: white;
+    border: none;
+    padding: 12px 25px;
+    font-size: 16px;
+    font-weight: bold;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.3s;
+    margin: 10px;
+    box-shadow: 0 4px 0 #990000;
+    display: none; /* Inicialmente escondido */
+}
+
+.btn-excluir:hover {
+    background: linear-gradient(to bottom, #ff6666, #ff0000);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 0 #990000;
+}
+
+.btn-excluir:active {
+    transform: translateY(2px);
+    box-shadow: 0 2px 0 #990000;
+}
+
+/* Controles do jogo */
+.controles-jogo {
+    display: flex;
+    gap: 20px;
+    margin-top: 20px;
+    align-items: center;
+}
+
+/* Informações da sala durante o jogo */
+.info-sala {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    color: #0f0;
+    font-size: 16px;
+    background: rgba(0, 0, 0, 0.7);
+    padding: 10px 20px;
+    border-radius: 10px;
+    z-index: 100;
+    line-height: 1.5;
+}
+
+/* Jogadores na sala */
+.jogadores-sala {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    color: white;
+    font-size: 16px;
+    background: rgba(0, 0, 0, 0.7);
+    padding: 15px 20px;
+    border-radius: 10px;
+    z-index: 100;
+    max-width: 300px;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.jogador-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    padding: 8px;
+    border-radius: 5px;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.jogador-item.eu {
+    background: rgba(0, 255, 0, 0.2);
+    border: 1px solid #0f0;
+}
+
+/* Mensagens */
+.mensagem {
+    color: #ff0;
+    font-size: 18px;
+    margin-top: 20px;
+    text-align: center;
+    min-height: 30px;
+    padding: 10px;
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.5);
+}
+
+/* Loading */
+.loading {
+    color: #0f0;
+    font-size: 20px;
+    margin-top: 20px;
+    text-align: center;
+    padding: 15px;
+    display: none;
+}
+
+.loading span {
+    animation: piscar 1.5s infinite;
+}
+
+@keyframes piscar {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+}
+
+/* Botões do menu */
+.btn-menu {
+    background: #0f0;
+    color: black;
+    border: none;
+    padding: 15px 30px;
+    font-size: 18px;
+    font-weight: bold;
+    border-radius: 50px;
+    cursor: pointer;
+    transition: all 0.3s;
+    text-transform: uppercase;
+    text-align: center;
+    min-width: 250px;
+}
+
+.btn-menu:hover {
+    background: #0c0;
+    transform: scale(1.05);
+    box-shadow: 0 0 20px #0f0;
+}
+
+/* Input de sala */
+.input-sala {
+    width: 100%;
+    padding: 15px;
+    font-size: 18px;
+    border: 2px solid #0f0;
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+    border-radius: 10px;
+    text-align: center;
+    outline: none;
+}
+
+.input-sala::placeholder {
+    color: #888;
+}
+
+.input-sala:focus {
+    border-color: #0c0;
+    box-shadow: 0 0 10px #0f0;
+}
+
+/* Botão voltar */
+.btn-voltar {
+    background: transparent;
+    color: #0f0;
+    border: 2px solid #0f0;
+    padding: 10px 20px;
+    font-size: 16px;
+    border-radius: 50px;
+    cursor: pointer;
+    transition: all 0.3s;
+    margin-top: 20px;
+}
+
+.btn-voltar:hover {
+    background: rgba(0, 255, 0, 0.1);
+}
+
+/* Lista de salas */
+.lista-salas {
+    width: 600px;
+    max-height: 400px;
+    overflow-y: auto;
+    background: rgba(0, 0, 0, 0.5);
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 30px;
+}
+
+.sala-item {
+    background: rgba(255, 255, 255, 0.1);
+    padding: 15px;
+    margin-bottom: 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.sala-item:hover {
+    background: rgba(0, 255, 0, 0.2);
+    transform: translateX(5px);
+}
+
+.sala-nome {
+    font-size: 20px;
+    color: white;
+    font-weight: bold;
+}
+
+.sala-info {
+    color: #0f0;
+    font-size: 14px;
+}
+
+/* Avatar do player */
+.player-avatar {
+    font-size: 60px;
+    margin-bottom: 15px;
+    height: 80px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Personagem icon */
+.personagem-icone {
+    font-size: 70px;
+    margin-bottom: 15px;
+    height: 100px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Especiais dos personagens */
+.personagem-especiais {
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid rgba(255, 255, 255, 0.2);
+    text-align: left;
+}
+
+.especial-item {
+    margin-bottom: 10px;
+    padding: 5px;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 5px;
+}
+
+.especial-nome {
+    display: block;
+    color: #0ff;
+    font-size: 12px;
+    font-weight: bold;
+    margin-bottom: 3px;
+}
+
+.especial-comando {
+    display: block;
+    color: #ff0;
+    font-size: 11px;
+    font-family: 'Courier New', monospace;
+}
+
+/* Botão confirmar */
+.btn-confirmar {
+    background: #0f0;
+    color: black;
+    border: none;
+    padding: 15px 40px;
+    font-size: 20px;
+    font-weight: bold;
+    border-radius: 50px;
+    cursor: pointer;
+    transition: all 0.3s;
+    text-transform: uppercase;
+}
+
+.btn-confirmar:hover {
+    background: #0c0;
+    transform: scale(1.1);
+    box-shadow: 0 0 20px #0f0;
+}
+
+.btn-confirmar:disabled {
+    background: #666;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+/* Responsividade */
+@media (max-width: 768px) {
+    .selecao-players {
+        flex-direction: column;
+        gap: 20px;
+    }
+    
+    .personagens-lista {
+        flex-direction: column;
+        gap: 20px;
+    }
+    
+    .lista-salas {
+        width: 90%;
+    }
+    
+    .jogadores-sala {
+        position: relative;
+        top: auto;
+        right: auto;
+        max-width: 90%;
+        margin: 20px auto;
+    }
+    
+    .info-sala {
+        position: relative;
+        top: auto;
+        left: auto;
+        margin: 20px auto;
+        width: 90%;
+    }
+}
+
+/* Scrollbar personalizada */
+.lista-salas::-webkit-scrollbar,
+.jogadores-sala::-webkit-scrollbar {
+    width: 8px;
+}
+
+.lista-salas::-webkit-scrollbar-track,
+.jogadores-sala::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 4px;
+}
+
+.lista-salas::-webkit-scrollbar-thumb,
+.jogadores-sala::-webkit-scrollbar-thumb {
+    background: #0f0;
+    border-radius: 4px;
+}
+
+.lista-salas::-webkit-scrollbar-thumb:hover,
+.jogadores-sala::-webkit-scrollbar-thumb:hover {
+    background: #0c0;
+}
+
+
