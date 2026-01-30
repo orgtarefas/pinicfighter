@@ -1,5 +1,5 @@
 // ============================================
-// SISTEMA MULTIPLAYER DE SALAS
+// SISTEMA MULTIPLAYER DE SALAS - AJUSTADO
 // ============================================
 
 // Variáveis globais para multiplayer
@@ -13,9 +13,9 @@ let jogadorLocal = null;
 
 // Mapeamento de controles por player
 const MAPEAMENTO_CONTROLES = {
-    '1': { esq: "a", dir: "d", pulo: "w", atk: "f", chute: "c", baixo: "s" },
-    '2': { esq: "ArrowLeft", dir: "ArrowRight", pulo: "ArrowUp", atk: "Enter", chute: ".", baixo: "ArrowDown" },
-    '3': { esq: "j", dir: "l", pulo: "i", atk: "h", chute: "n", baixo: "k" },
+    '1': { esq: "KeyA", dir: "KeyD", pulo: "KeyW", atk: "KeyF", chute: "KeyC", baixo: "KeyS" },
+    '2': { esq: "ArrowLeft", dir: "ArrowRight", pulo: "ArrowUp", atk: "Enter", chute: "Period", baixo: "ArrowDown" },
+    '3': { esq: "KeyJ", dir: "KeyL", pulo: "KeyI", atk: "KeyH", chute: "KeyN", baixo: "KeyK" },
     '4': { esq: "Numpad4", dir: "Numpad6", pulo: "Numpad8", atk: "Numpad0", chute: "NumpadDecimal", baixo: "Numpad5" }
 };
 
@@ -33,8 +33,8 @@ window.inicializarJogoMultiplayer = function(nomeSala, playerNum, personagem) {
     // Configurar controles do jogador local
     controlesPorPlayer[playerNum] = MAPEAMENTO_CONTROLES[playerNum];
     
-    // Inicializar todos os jogadores como vazios inicialmente
-    inicializarTodosJogadores();
+    // NÃO inicializar todos os jogadores - apenas o local
+    // Aguardar Firebase para outros jogadores
     
     // Configurar jogador local
     const playerNumInt = parseInt(playerNum);
@@ -54,7 +54,8 @@ window.inicializarJogoMultiplayer = function(nomeSala, playerNum, personagem) {
         instancia: jogador,
         tipo: personagem,
         vivo: true,
-        playerNum: playerNum
+        playerNum: playerNum,
+        ativo: true // Flag indicando que é um jogador ativo na sala
     };
     
     // Atribuir ao jogador local
@@ -77,14 +78,32 @@ window.inicializarJogoMultiplayer = function(nomeSala, playerNum, personagem) {
 window.atualizarJogadoresGame = function(jogadoresSala) {
     console.log('🔄 Atualizando jogadores da sala:', Object.keys(jogadoresSala));
     
+    // Primeiro: marcar todos os jogadores existentes como inativos
+    for (const playerId in jogadores) {
+        if (playerId !== meuPlayerIdGame) {
+            // Marcar como inativo se não está mais na sala
+            if (!jogadoresSala[playerId]) {
+                if (jogadores[playerId] && jogadores[playerId].instancia) {
+                    jogadores[playerId].instancia.vivo = false;
+                    jogadores[playerId].instancia.vida = 0;
+                    jogadores[playerId].ativo = false;
+                    
+                    console.log(`➖ Jogador ${playerId} marcado como inativo`);
+                }
+            }
+        }
+    }
+    
+    // Segundo: processar jogadores na sala atual
     for (const [playerId, dados] of Object.entries(jogadoresSala)) {
         if (playerId === meuPlayerIdGame) {
             // Ignorar jogador local (já está configurado)
+            jogadores[playerId].ativo = true;
             continue;
         }
         
-        // Se jogador já existe, atualizar dados
-        if (jogadores[playerId]) {
+        // Se jogador já existe e está ativo, atualizar dados
+        if (jogadores[playerId] && jogadores[playerId].ativo) {
             const jogador = jogadores[playerId].instancia;
             
             // Atualizar dados do personagem se mudou
@@ -114,6 +133,7 @@ window.atualizarJogadoresGame = function(jogadoresSala) {
                 // Substituir instância
                 jogadores[playerId].instancia = novoJogador;
                 jogadores[playerId].tipo = dados.personagem;
+                jogadores[playerId].ativo = true;
                 
                 // Atualizar variável global
                 switch(playerNum) {
@@ -124,61 +144,68 @@ window.atualizarJogadoresGame = function(jogadoresSala) {
                 }
             } else {
                 // Apenas atualizar dados básicos
-                jogador.vida = dados.vida || jogador.vida;
-                jogador.vivo = dados.vivo !== undefined ? dados.vivo : jogador.vivo;
-                jogadores[playerId].vivo = jogador.vivo;
+                if (jogador) {
+                    jogador.vida = dados.vida || jogador.vida;
+                    jogador.vivo = dados.vivo !== undefined ? dados.vivo : jogador.vivo;
+                    jogadores[playerId].vivo = jogador.vivo;
+                    jogadores[playerId].ativo = true;
+                }
             }
         } else {
-            // Criar novo jogador
-            console.log(`➕ Criando novo jogador: ${playerId} (${dados.personagem || 'cocozin'})`);
-            
-            const playerNum = playerId.charAt(1);
-            const controles = MAPEAMENTO_CONTROLES[playerNum] || MAPEAMENTO_CONTROLES['1'];
-            const direcao = parseInt(playerNum) <= 2 ? 1 : -1;
-            const posicaoX = 150 + (parseInt(playerNum) - 1) * 200;
-            
-            const jogador = criarPersonagem(
-                dados.personagem || 'cocozin',
-                posicaoX,
-                controles,
-                direcao,
-                playerId
-            );
-            
-            jogador.vida = dados.vida || 100;
-            jogador.vivo = dados.vivo !== undefined ? dados.vivo : true;
-            
-            jogadores[playerId] = {
-                instancia: jogador,
-                tipo: dados.personagem || 'cocozin',
-                vivo: jogador.vivo,
-                playerNum: playerNum
-            };
-            
-            // Atribuir à variável global
-            switch(playerNum) {
-                case '1': p1 = jogador; break;
-                case '2': p2 = jogador; break;
-                case '3': p3 = jogador; break;
-                case '4': p4 = jogador; break;
+            // Criar novo jogador - APENAS se houver dados do personagem
+            if (dados.personagem) {
+                console.log(`➕ Criando novo jogador: ${playerId} (${dados.personagem})`);
+                
+                const playerNum = playerId.charAt(1);
+                const controles = MAPEAMENTO_CONTROLES[playerNum] || MAPEAMENTO_CONTROLES['1'];
+                const direcao = parseInt(playerNum) <= 2 ? 1 : -1;
+                const posicaoX = 150 + (parseInt(playerNum) - 1) * 200;
+                
+                const jogador = criarPersonagem(
+                    dados.personagem || 'cocozin',
+                    posicaoX,
+                    controles,
+                    direcao,
+                    playerId
+                );
+                
+                jogador.vida = dados.vida || 100;
+                jogador.vivo = dados.vivo !== undefined ? dados.vivo : true;
+                
+                jogadores[playerId] = {
+                    instancia: jogador,
+                    tipo: dados.personagem || 'cocozin',
+                    vivo: jogador.vivo,
+                    playerNum: playerNum,
+                    ativo: true
+                };
+                
+                // Atribuir à variável global
+                switch(playerNum) {
+                    case '1': p1 = jogador; break;
+                    case '2': p2 = jogador; break;
+                    case '3': p3 = jogador; break;
+                    case '4': p4 = jogador; break;
+                }
             }
         }
     }
     
-    // Remover jogadores que saíram da sala
+    // Terceiro: remover completamente jogadores que saíram (após um tempo)
     for (const playerId in jogadores) {
-        if (playerId !== meuPlayerIdGame && !jogadoresSala[playerId]) {
-            console.log(`➖ Removendo jogador: ${playerId}`);
+        if (playerId !== meuPlayerIdGame && !jogadoresSala[playerId] && jogadores[playerId] && !jogadores[playerId].ativo) {
+            // Jogador inativo por muito tempo - remover completamente
+            delete jogadores[playerId];
+            console.log(`🗑️ Removendo jogador inativo: ${playerId}`);
             
-            // Marcar como morto/removido
-            const jogador = jogadores[playerId].instancia;
-            if (jogador) {
-                jogador.vivo = false;
-                jogador.vida = 0;
+            // Limpar variável global
+            const playerNum = playerId.charAt(1);
+            switch(playerNum) {
+                case '1': p1 = null; break;
+                case '2': p2 = null; break;
+                case '3': p3 = null; break;
+                case '4': p4 = null; break;
             }
-            
-            // Não remover completamente, apenas marcar como inativo
-            // para evitar problemas de referência
         }
     }
 };
@@ -191,48 +218,7 @@ window.sincronizarDadosJogo = function(dadosJogo) {
 };
 
 // ============================================
-// INICIALIZAÇÃO DOS JOGADORES
-// ============================================
-
-function inicializarTodosJogadores() {
-    // Inicializar todos os 4 jogadores como personagens vazios
-    for (let i = 1; i <= 4; i++) {
-        const playerId = `p${i}`;
-        const controles = MAPEAMENTO_CONTROLES[i] || MAPEAMENTO_CONTROLES['1'];
-        const direcao = i <= 2 ? 1 : -1;
-        const posicaoX = 150 + (i - 1) * 200;
-        
-        // Criar personagem placeholder
-        const jogador = criarPersonagem(
-            'cocozin',
-            posicaoX,
-            controles,
-            direcao,
-            playerId
-        );
-        
-        jogador.vivo = false; // Inicialmente não está ativo
-        jogador.vida = 0;
-        
-        jogadores[playerId] = {
-            instancia: jogador,
-            tipo: 'cocozin',
-            vivo: false,
-            playerNum: i.toString()
-        };
-        
-        // Atribuir às variáveis globais
-        switch(i) {
-            case 1: p1 = jogador; break;
-            case 2: p2 = jogador; break;
-            case 3: p3 = jogador; break;
-            case 4: p4 = jogador; break;
-        }
-    }
-}
-
-// ============================================
-// LOOP DO JOGO MULTIPLAYER
+// LOOP DO JOGO MULTIPLAYER - AJUSTADO
 // ============================================
 
 function iniciarLoopJogoMultiplayer() {
@@ -262,19 +248,9 @@ function configurarFirebaseMultiplayer() {
     }
     
     console.log('🔗 Configurando Firebase para multiplayer...');
-    
-    // Escutar atualizações dos outros jogadores
-    for (let i = 1; i <= 4; i++) {
-        const playerId = `p${i}`;
-        
-        if (playerId === meuPlayerIdGame) continue;
-        
-        // Configurar listener para cada jogador
-        // (Isso será implementado com o sistema de salas do firebase-config.js)
-    }
 }
 
-// Loop principal multiplayer
+// Loop principal multiplayer - AJUSTADO PARA UM JOGADOR
 function loopMultiplayer() {
     if (!jogadorLocal || !salaAtualGame) {
         // Aguarda inicialização
@@ -293,35 +269,36 @@ function loopMultiplayer() {
         ctx.fillRect(0, CHAO - 40, 900, 180);
     }
 
-    // Desenha barras de vida (atualizada para 4 jogadores)
+    // Desenha barras de vida (atualizada para jogadores ativos)
     barrasMultiplayer();
 
-    // Verificar se o jogo terminou (todos os outros jogadores mortos)
-    let jogadoresVivos = 0;
+    // Verificar se há algum outro jogador vivo
+    let outrosJogadoresVivos = 0;
     for (const playerId in jogadores) {
-        if (jogadores[playerId].instancia && jogadores[playerId].instancia.vivo) {
-            jogadoresVivos++;
+        if (playerId !== meuPlayerIdGame && 
+            jogadores[playerId] && 
+            jogadores[playerId].instancia && 
+            jogadores[playerId].instancia.vivo) {
+            outrosJogadoresVivos++;
         }
     }
     
-    if (jogadoresVivos <= 1 && !jogoTerminou) {
+    // Só termina o jogo se houver pelo menos 2 jogadores e apenas 1 sobreviver
+    const totalJogadoresAtivos = Object.keys(jogadores).filter(id => jogadores[id].ativo).length;
+    
+    if (totalJogadoresAtivos > 1 && outrosJogadoresVivos === 0 && !jogoTerminou) {
         jogoTerminou = true;
-        console.log('⚡ JOGO TERMINADO!');
-        
-        // Determinar vencedor
-        let vencedor = null;
-        for (const playerId in jogadores) {
-            if (jogadores[playerId].instancia && jogadores[playerId].instancia.vivo) {
-                vencedor = playerId;
-                break;
-            }
-        }
-        
-        console.log(`🏆 Vencedor: ${vencedor || 'Ninguém'}`);
+        console.log('⚡ JOGO TERMINADO! Você venceu!');
     }
     
-    // Controles só funcionam se o jogo não terminou
-    if (!jogoTerminou && jogadorLocal.vivo) {
+    // Se estiver jogando sozinho, não termina o jogo
+    if (totalJogadoresAtivos === 1 && !jogoTerminou) {
+        // Jogando sozinho - pode treinar livremente
+        // console.log('🎮 Jogando sozinho - Modo treino');
+    }
+    
+    // Controles funcionam sempre
+    if (jogadorLocal.vivo) {
         // Atualizar jogador local
         jogadorLocal.mover(keys);
         jogadorLocal.pular(keys);
@@ -329,7 +306,7 @@ function loopMultiplayer() {
         // Atacar todos os outros jogadores vivos
         for (const playerId in jogadores) {
             if (playerId !== meuPlayerIdGame) {
-                const inimigo = jogadores[playerId].instancia;
+                const inimigo = jogadores[playerId]?.instancia;
                 if (inimigo && inimigo.vivo) {
                     jogadorLocal.atacar(keys, inimigo);
                 }
@@ -341,7 +318,7 @@ function loopMultiplayer() {
         // Atualizar cocôs ativos do jogador local
         for (const playerId in jogadores) {
             if (playerId !== meuPlayerIdGame) {
-                const inimigo = jogadores[playerId].instancia;
+                const inimigo = jogadores[playerId]?.instancia;
                 if (inimigo) {
                     jogadorLocal.atualizarCocos(inimigo);
                 }
@@ -352,7 +329,7 @@ function loopMultiplayer() {
         if (typeof jogadorLocal.atualizarEspeciais === 'function') {
             for (const playerId in jogadores) {
                 if (playerId !== meuPlayerIdGame) {
-                    const inimigo = jogadores[playerId].instancia;
+                    const inimigo = jogadores[playerId]?.instancia;
                     if (inimigo && inimigo.vivo) {
                         jogadorLocal.atualizarEspeciais(inimigo);
                     }
@@ -363,7 +340,7 @@ function loopMultiplayer() {
         // Atualizar cocôs ativos de todos os inimigos
         for (const playerId in jogadores) {
             if (playerId !== meuPlayerIdGame) {
-                const jogador = jogadores[playerId].instancia;
+                const jogador = jogadores[playerId]?.instancia;
                 if (jogador && jogador.vivo) {
                     jogador.atualizarCocos(jogadorLocal);
                     jogador.fisica();
@@ -380,18 +357,18 @@ function loopMultiplayer() {
         enviarDadosJogadorMultiplayer();
     }
     
-    // Desenhar todos os jogadores
+    // Desenhar todos os jogadores ATIVOS
     for (let i = 1; i <= 4; i++) {
         const jogador = jogadores[`p${i}`]?.instancia;
-        if (jogador) {
+        if (jogador && jogadores[`p${i}`]?.ativo) {
             jogador.desenhar();
         }
     }
     
-    // DESENHAR ESPECIAIS de todos os jogadores
+    // DESENHAR ESPECIAIS de todos os jogadores ativos
     for (let i = 1; i <= 4; i++) {
         const jogador = jogadores[`p${i}`]?.instancia;
-        if (jogador && typeof jogador.desenharEspeciais === 'function') {
+        if (jogador && jogadores[`p${i}`]?.ativo && typeof jogador.desenharEspeciais === 'function') {
             jogador.desenharEspeciais();
         }
     }
@@ -444,11 +421,11 @@ function enviarDadosJogadorMultiplayer() {
 }
 
 // ============================================
-// FUNÇÕES DE UI PARA MULTIPLAYER
+// FUNÇÕES DE UI PARA MULTIPLAYER - AJUSTADO
 // ============================================
 
 function barrasMultiplayer() {
-    // Desenhar barras de vida para até 4 jogadores
+    // Desenhar barras de vida apenas para jogadores ATIVOS
     const posicoes = [
         { x: 50, player: 'p1' },
         { x: 650, player: 'p2' },
@@ -456,11 +433,18 @@ function barrasMultiplayer() {
         { x: 650, y: 60, player: 'p4' }
     ];
     
+    let jogadoresDesenhados = 0;
+    
     for (let i = 0; i < posicoes.length; i++) {
         const pos = posicoes[i];
         const playerId = pos.player;
-        const jogador = jogadores[playerId]?.instancia;
         
+        // Verificar se jogador existe e está ativo
+        if (!jogadores[playerId] || !jogadores[playerId].ativo) {
+            continue;
+        }
+        
+        const jogador = jogadores[playerId].instancia;
         if (!jogador) continue;
         
         const y = pos.y || 20;
@@ -515,6 +499,17 @@ function barrasMultiplayer() {
         } else if (jogador.tipo === "peidovélio") {
             ctx.fillText("💨", iconX, iconY);
         }
+        
+        jogadoresDesenhados++;
+    }
+    
+    // Se só tem um jogador, mostra mensagem
+    if (jogadoresDesenhados === 1) {
+        ctx.fillStyle = "yellow";
+        ctx.font = "14px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText("Aguardando outros jogadores... (Modo Treino)", 450, 380);
+        ctx.textAlign = "left";
     }
     
     // Instrução de reinício
@@ -536,7 +531,7 @@ function desenharTelaFimMultiplayer() {
     
     for (const playerId in jogadores) {
         const jogador = jogadores[playerId]?.instancia;
-        if (jogador && jogador.vivo) {
+        if (jogador && jogador.vivo && jogadores[playerId]?.ativo) {
             vencedor = jogador;
             vencedorId = playerId;
             break;
@@ -577,7 +572,7 @@ function desenharTelaFimMultiplayer() {
     let y = 310;
     for (const playerId in jogadores) {
         const jogador = jogadores[playerId]?.instancia;
-        if (jogador) {
+        if (jogador && jogadores[playerId]?.ativo) {
             ctx.fillText(
                 `${playerId}: ${jogador.tipo} - ${jogador.vivo ? "VIVO" : "DERROTADO"} (${jogador.vida} HP)`, 
                 canvas.width / 2, 
@@ -601,25 +596,27 @@ function reiniciarJogoMultiplayer() {
     
     console.log('🔄 Reiniciando jogo multiplayer...');
     
-    // Reiniciar todos os jogadores
+    // Reiniciar todos os jogadores ativos
     for (const playerId in jogadores) {
-        const jogador = jogadores[playerId].instancia;
-        if (jogador) {
-            const playerNum = playerId.charAt(1);
-            const posicaoX = 150 + (parseInt(playerNum) - 1) * 200;
-            
-            jogador.x = posicaoX;
-            jogador.y = CHAO;
-            jogador.vida = 100;
-            jogador.vivo = true;
-            jogador.atacando = false;
-            jogador.chutando = false;
-            jogador.abaixado = false;
-            jogador.deslizando = false;
-            jogador.pulando = false;
-            jogador.cocosAtivos = [];
-            jogador.cdPoder = 0;
-            jogador.cargaPoder = 0;
+        if (jogadores[playerId]?.ativo) {
+            const jogador = jogadores[playerId].instancia;
+            if (jogador) {
+                const playerNum = playerId.charAt(1);
+                const posicaoX = 150 + (parseInt(playerNum) - 1) * 200;
+                
+                jogador.x = posicaoX;
+                jogador.y = CHAO;
+                jogador.vida = 100;
+                jogador.vivo = true;
+                jogador.atacando = false;
+                jogador.chutando = false;
+                jogador.abaixado = false;
+                jogador.deslizando = false;
+                jogador.pulando = false;
+                jogador.cocosAtivos = [];
+                jogador.cdPoder = 0;
+                jogador.cargaPoder = 0;
+            }
         }
     }
     
@@ -635,4 +632,3 @@ function reiniciarJogoMultiplayer() {
 
 console.log('🎮 game.js multiplayer carregado');
 console.log('✅ Aguardando criação/entrada em sala...');
-
