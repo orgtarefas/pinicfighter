@@ -1,3 +1,74 @@
+
+// ============================================
+// INICIALIZAÇÃO BÁSICA DO JOGO
+// ============================================
+
+// Variáveis básicas do jogo
+let canvas, ctx;
+let fundo;
+let p1, p2; // Para compatibilidade com modo single player
+
+// Inicializar elementos básicos quando a página carregar
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🎮 Inicializando sistema básico do jogo...');
+    
+    // Obter referências do canvas
+    canvas = document.getElementById('game');
+    if (!canvas) {
+        console.error('❌ Canvas não encontrado!');
+        return;
+    }
+    
+    ctx = canvas.getContext('2d');
+    
+    // Carregar imagem de fundo
+    fundo = new Image();
+    fundo.src = "imagens/fundo.png";
+    
+    console.log('✅ Sistema básico inicializado');
+});
+
+// Função para iniciar jogo single player (fallback)
+window.iniciarJogoSinglePlayer = function(personagem1, personagem2) {
+    console.log('👤 Iniciando modo single player...');
+    
+    // Criar personagens
+    p1 = criarPersonagem(personagem1 || 'cocozin', 200, 'p1');
+    p2 = criarPersonagem(personagem2 || 'ratazana', 700, 'p2');
+    
+    // Iniciar loop
+    loopSinglePlayer();
+};
+
+// Loop para single player
+function loopSinglePlayer() {
+    if (!ctx || !p1 || !p2) return;
+    
+    // Limpar canvas
+    ctx.clearRect(0, 0, 900, 400);
+    
+    // Desenhar fundo
+    if (fundo.complete) {
+        ctx.drawImage(fundo, 0, 200, 900, 180);
+    }
+    
+    // Atualizar e desenhar personagens
+    p1.mover();
+    p1.pular();
+    p1.atacar(p2);
+    p1.fisica();
+    p1.desenhar();
+    
+    p2.mover();
+    p2.pular();
+    p2.atacar(p1);
+    p2.fisica();
+    p2.desenhar();
+    
+    // Chamar novamente
+    requestAnimationFrame(loopSinglePlayer);
+}
+
 // ============================================
 // SISTEMA MULTIPLAYER SIMPLIFICADO
 // ============================================
@@ -265,3 +336,4 @@ function barrasMultiplayer() {
 
 console.log('🎮 game.js multiplayer SIMPLIFICADO carregado');
 console.log('✅ Aguardando criação/entrada em sala...');
+
