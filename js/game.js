@@ -11,12 +11,22 @@ let controlesPorPlayer = {};
 let p1, p2, p3, p4; // Agora temos 4 jogadores possíveis
 let jogadorLocal = null;
 
-// Mapeamento de controles por player
+// Mapeamento de controles por player - ATUALIZADO
 const MAPEAMENTO_CONTROLES = {
     '1': { esq: "KeyA", dir: "KeyD", pulo: "KeyW", atk: "KeyF", chute: "KeyC", baixo: "KeyS" },
     '2': { esq: "ArrowLeft", dir: "ArrowRight", pulo: "ArrowUp", atk: "Enter", chute: "Period", baixo: "ArrowDown" },
     '3': { esq: "KeyJ", dir: "KeyL", pulo: "KeyI", atk: "KeyH", chute: "KeyN", baixo: "KeyK" },
     '4': { esq: "Numpad4", dir: "Numpad6", pulo: "Numpad8", atk: "Numpad0", chute: "NumpadDecimal", baixo: "Numpad5" }
+};
+
+// Mapeamento para o sistema de teclas
+const MAPEAMENTO_TECLAS = {
+    'KeyA': 'a', 'KeyD': 'd', 'KeyW': 'w', 'KeyF': 'f', 'KeyC': 'c', 'KeyS': 's',
+    'ArrowLeft': 'ArrowLeft', 'ArrowRight': 'ArrowRight', 'ArrowUp': 'ArrowUp', 
+    'Enter': 'Enter', 'Period': '.', 'ArrowDown': 'ArrowDown',
+    'KeyJ': 'j', 'KeyL': 'l', 'KeyI': 'i', 'KeyH': 'h', 'KeyN': 'n', 'KeyK': 'k',
+    'Numpad4': 'Numpad4', 'Numpad6': 'Numpad6', 'Numpad8': 'Numpad8',
+    'Numpad0': 'Numpad0', 'NumpadDecimal': 'NumpadDecimal', 'Numpad5': 'Numpad5'
 };
 
 // Inicializar jogo multiplayer (chamado pelo firebase-config.js)
@@ -32,9 +42,6 @@ window.inicializarJogoMultiplayer = function(nomeSala, playerNum, personagem) {
     
     // Configurar controles do jogador local
     controlesPorPlayer[playerNum] = MAPEAMENTO_CONTROLES[playerNum];
-    
-    // NÃO inicializar todos os jogadores - apenas o local
-    // Aguardar Firebase para outros jogadores
     
     // Configurar jogador local
     const playerNumInt = parseInt(playerNum);
@@ -74,9 +81,9 @@ window.inicializarJogoMultiplayer = function(nomeSala, playerNum, personagem) {
     iniciarLoopJogoMultiplayer();
 };
 
-// Atualizar jogadores do game (chamado pelo firebase-config.js)
+// Atualizar jogadores do game (chamado pelo firebase-config.js) - AJUSTADO
 window.atualizarJogadoresGame = function(jogadoresSala) {
-    console.log('🔄 Atualizando jogadores da sala:', Object.keys(jogadoresSala));
+    // console.log('🔄 Atualizando jogadores da sala:', Object.keys(jogadoresSala));
     
     // Primeiro: marcar todos os jogadores existentes como inativos
     for (const playerId in jogadores) {
@@ -87,8 +94,6 @@ window.atualizarJogadoresGame = function(jogadoresSala) {
                     jogadores[playerId].instancia.vivo = false;
                     jogadores[playerId].instancia.vida = 0;
                     jogadores[playerId].ativo = false;
-                    
-                    console.log(`➖ Jogador ${playerId} marcado como inativo`);
                 }
             }
         }
@@ -106,55 +111,28 @@ window.atualizarJogadoresGame = function(jogadoresSala) {
         if (jogadores[playerId] && jogadores[playerId].ativo) {
             const jogador = jogadores[playerId].instancia;
             
-            // Atualizar dados do personagem se mudou
-            if (dados.personagem && dados.personagem !== jogador.tipo) {
-                console.log(`🎭 ${playerId} mudou para ${dados.personagem}`);
-                
-                // Recriar personagem
-                const playerNum = playerId.charAt(1);
-                const controles = MAPEAMENTO_CONTROLES[playerNum] || MAPEAMENTO_CONTROLES['1'];
-                const direcao = parseInt(playerNum) <= 2 ? 1 : -1;
-                const posicaoX = 150 + (parseInt(playerNum) - 1) * 200;
-                
-                const novoJogador = criarPersonagem(
-                    dados.personagem,
-                    posicaoX,
-                    controles,
-                    direcao,
-                    playerId
-                );
-                
-                // Copiar estado atual
-                novoJogador.x = jogador.x;
-                novoJogador.y = jogador.y;
-                novoJogador.vida = dados.vida || jogador.vida;
-                novoJogador.vivo = dados.vivo !== undefined ? dados.vivo : jogador.vivo;
-                
-                // Substituir instância
-                jogadores[playerId].instancia = novoJogador;
-                jogadores[playerId].tipo = dados.personagem;
+            // Atualizar dados básicos
+            if (jogador) {
+                jogador.vida = dados.vida || jogador.vida;
+                jogador.vivo = dados.vivo !== undefined ? dados.vivo : jogador.vivo;
+                jogadores[playerId].vivo = jogador.vivo;
                 jogadores[playerId].ativo = true;
                 
-                // Atualizar variável global
-                switch(playerNum) {
-                    case '1': p1 = novoJogador; break;
-                    case '2': p2 = novoJogador; break;
-                    case '3': p3 = novoJogador; break;
-                    case '4': p4 = novoJogador; break;
+                // Atualizar posição se for diferente
+                if (dados.x !== undefined && Math.abs(dados.x - jogador.x) > 5) {
+                    jogador.x = dados.x;
                 }
-            } else {
-                // Apenas atualizar dados básicos
-                if (jogador) {
-                    jogador.vida = dados.vida || jogador.vida;
-                    jogador.vivo = dados.vivo !== undefined ? dados.vivo : jogador.vivo;
-                    jogadores[playerId].vivo = jogador.vivo;
-                    jogadores[playerId].ativo = true;
+                if (dados.y !== undefined && Math.abs(dados.y - jogador.y) > 5) {
+                    jogador.y = dados.y;
+                }
+                if (dados.dir !== undefined) {
+                    jogador.dir = dados.dir;
                 }
             }
         } else {
             // Criar novo jogador - APENAS se houver dados do personagem
             if (dados.personagem) {
-                console.log(`➕ Criando novo jogador: ${playerId} (${dados.personagem})`);
+                // console.log(`➕ Criando novo jogador: ${playerId} (${dados.personagem})`);
                 
                 const playerNum = playerId.charAt(1);
                 const controles = MAPEAMENTO_CONTROLES[playerNum] || MAPEAMENTO_CONTROLES['1'];
@@ -171,6 +149,9 @@ window.atualizarJogadoresGame = function(jogadoresSala) {
                 
                 jogador.vida = dados.vida || 100;
                 jogador.vivo = dados.vivo !== undefined ? dados.vivo : true;
+                jogador.x = dados.x || posicaoX;
+                jogador.y = dados.y || CHAO;
+                jogador.dir = dados.dir || direcao;
                 
                 jogadores[playerId] = {
                     instancia: jogador,
@@ -196,7 +177,6 @@ window.atualizarJogadoresGame = function(jogadoresSala) {
         if (playerId !== meuPlayerIdGame && !jogadoresSala[playerId] && jogadores[playerId] && !jogadores[playerId].ativo) {
             // Jogador inativo por muito tempo - remover completamente
             delete jogadores[playerId];
-            console.log(`🗑️ Removendo jogador inativo: ${playerId}`);
             
             // Limpar variável global
             const playerNum = playerId.charAt(1);
@@ -212,9 +192,7 @@ window.atualizarJogadoresGame = function(jogadoresSala) {
 
 // Sincronizar dados do jogo (chamado pelo firebase-config.js)
 window.sincronizarDadosJogo = function(dadosJogo) {
-    // Implementar sincronização de estado do jogo se necessário
-    // Por exemplo: tempo restante, power-ups, etc.
-    console.log('📡 Dados do jogo sincronizados:', dadosJogo);
+    // console.log('📡 Dados do jogo sincronizados:', dadosJogo);
 };
 
 // ============================================
@@ -223,9 +201,6 @@ window.sincronizarDadosJogo = function(dadosJogo) {
 
 function iniciarLoopJogoMultiplayer() {
     console.log('🎬 Iniciando loop do jogo multiplayer...');
-    
-    // Configurar listeners do Firebase para esta sala
-    configurarFirebaseMultiplayer();
     
     // Iniciar o loop
     if (fundo.complete) {
@@ -241,16 +216,7 @@ function iniciarLoopJogoMultiplayer() {
     }
 }
 
-function configurarFirebaseMultiplayer() {
-    if (!salaAtualGame || !meuPlayerIdGame) {
-        console.error('Não é possível configurar Firebase: sala ou player não definidos');
-        return;
-    }
-    
-    console.log('🔗 Configurando Firebase para multiplayer...');
-}
-
-// Loop principal multiplayer - AJUSTADO PARA UM JOGADOR
+// Loop principal multiplayer - AJUSTADO PARA CORRIGIR CONTROLES
 function loopMultiplayer() {
     if (!jogadorLocal || !salaAtualGame) {
         // Aguarda inicialização
@@ -294,21 +260,54 @@ function loopMultiplayer() {
     // Se estiver jogando sozinho, não termina o jogo
     if (totalJogadoresAtivos === 1 && !jogoTerminou) {
         // Jogando sozinho - pode treinar livremente
-        // console.log('🎮 Jogando sozinho - Modo treino');
     }
     
     // Controles funcionam sempre
-    if (jogadorLocal.vivo) {
-        // Atualizar jogador local
-        jogadorLocal.mover(keys);
-        jogadorLocal.pular(keys);
+    if (jogadorLocal.vivo && !jogoTerminou) {
+        // CONVERSÃO DAS TECLAS PARA O SISTEMA ANTIGO
+        const teclasConvertidas = {};
+        
+        // Converter teclas do novo formato para o antigo
+        for (const [tecla, valor] of Object.entries(keys)) {
+            if (valor === true) {
+                // Mapear teclas para os valores que o fighter.js espera
+                switch(tecla) {
+                    case 'KeyA': teclasConvertidas['a'] = true; break;
+                    case 'KeyD': teclasConvertidas['d'] = true; break;
+                    case 'KeyW': teclasConvertidas['w'] = true; break;
+                    case 'KeyF': teclasConvertidas['f'] = true; break;
+                    case 'KeyC': teclasConvertidas['c'] = true; break;
+                    case 'KeyS': teclasConvertidas['s'] = true; break;
+                    
+                    case 'ArrowLeft': teclasConvertidas['ArrowLeft'] = true; break;
+                    case 'ArrowRight': teclasConvertidas['ArrowRight'] = true; break;
+                    case 'ArrowUp': teclasConvertidas['ArrowUp'] = true; break;
+                    case 'Enter': teclasConvertidas['Enter'] = true; break;
+                    case 'Period': teclasConvertidas['.'] = true; break;
+                    case 'ArrowDown': teclasConvertidas['ArrowDown'] = true; break;
+                    
+                    case 'KeyJ': teclasConvertidas['j'] = true; break;
+                    case 'KeyL': teclasConvertidas['l'] = true; break;
+                    case 'KeyI': teclasConvertidas['i'] = true; break;
+                    case 'KeyH': teclasConvertidas['h'] = true; break;
+                    case 'KeyN': teclasConvertidas['n'] = true; break;
+                    case 'KeyK': teclasConvertidas['k'] = true; break;
+                    
+                    default: teclasConvertidas[tecla] = true; break;
+                }
+            }
+        }
+        
+        // Atualizar jogador local com teclas convertidas
+        jogadorLocal.mover(teclasConvertidas);
+        jogadorLocal.pular(teclasConvertidas);
         
         // Atacar todos os outros jogadores vivos
         for (const playerId in jogadores) {
             if (playerId !== meuPlayerIdGame) {
                 const inimigo = jogadores[playerId]?.instancia;
                 if (inimigo && inimigo.vivo) {
-                    jogadorLocal.atacar(keys, inimigo);
+                    jogadorLocal.atacar(teclasConvertidas, inimigo);
                 }
             }
         }
@@ -405,12 +404,8 @@ function enviarDadosJogadorMultiplayer() {
         deslizando: jogadorLocal.deslizando,
         vivo: jogadorLocal.vivo,
         pulando: jogadorLocal.pulando,
-        sapatoX: jogadorLocal.sapatoX,
-        sapatoY: jogadorLocal.sapatoY,
         olhosAbertos: jogadorLocal.olhosAbertos,
         descendoRapido: jogadorLocal.descendoRapido,
-        cdPoder: jogadorLocal.cdPoder,
-        cargaPoder: jogadorLocal.cargaPoder,
         tipo: jogadorLocal.tipo
     };
     
