@@ -2,11 +2,11 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <title>Pinico Fighter</title>
+    <title>Pinico Fighter - Salas Multiplayer</title>
     <link rel="stylesheet" href="css/style.css">
     <style>
-        /* Estilos para a seleção */
-        .tela-selecao {
+        /* Estilos gerais para todas as telas */
+        .tela-container {
             position: fixed;
             top: 0;
             left: 0;
@@ -20,8 +20,13 @@
             z-index: 1000;
         }
         
-        .selecao-titulo {
-            font-size: 48px;
+        .logo-selecao {
+            max-width: 300px;
+            margin-bottom: 30px;
+        }
+        
+        .titulo-tela {
+            font-size: 36px;
             color: #0f0;
             text-shadow: 0 0 10px #0f0;
             margin-bottom: 30px;
@@ -29,25 +34,136 @@
             text-transform: uppercase;
         }
         
-        .selecao-subtitulo {
-            font-size: 24px;
+        .subtitulo-tela {
+            font-size: 18px;
             color: white;
-            margin-bottom: 50px;
+            margin-bottom: 40px;
+            text-align: center;
+            max-width: 600px;
         }
         
+        /* Tela inicial (menu) */
+        .menu-opcoes {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            width: 300px;
+        }
+        
+        .btn-menu {
+            background: #0f0;
+            color: black;
+            border: none;
+            padding: 15px 30px;
+            font-size: 18px;
+            font-weight: bold;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-transform: uppercase;
+            text-align: center;
+        }
+        
+        .btn-menu:hover {
+            background: #0c0;
+            transform: scale(1.05);
+            box-shadow: 0 0 20px #0f0;
+        }
+        
+        /* Tela de criar sala */
+        .form-sala {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            width: 400px;
+            align-items: center;
+        }
+        
+        .input-sala {
+            width: 100%;
+            padding: 15px;
+            font-size: 18px;
+            border: 2px solid #0f0;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border-radius: 10px;
+            text-align: center;
+        }
+        
+        .input-sala::placeholder {
+            color: #888;
+        }
+        
+        .btn-voltar {
+            background: transparent;
+            color: #0f0;
+            border: 2px solid #0f0;
+            padding: 10px 20px;
+            font-size: 16px;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-top: 20px;
+        }
+        
+        .btn-voltar:hover {
+            background: rgba(0, 255, 0, 0.1);
+        }
+        
+        /* Tela de listar salas */
+        .lista-salas {
+            width: 600px;
+            max-height: 400px;
+            overflow-y: auto;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .sala-item {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .sala-item:hover {
+            background: rgba(0, 255, 0, 0.2);
+            transform: translateX(5px);
+        }
+        
+        .sala-nome {
+            font-size: 20px;
+            color: white;
+            font-weight: bold;
+        }
+        
+        .sala-info {
+            color: #0f0;
+            font-size: 14px;
+        }
+        
+        /* Tela de seleção de player */
         .selecao-players {
             display: flex;
-            gap: 100px;
-            margin-bottom: 50px;
+            gap: 50px;
+            margin-bottom: 40px;
         }
         
         .player-opcao {
             text-align: center;
             cursor: pointer;
             transition: transform 0.3s;
-            padding: 20px;
-            border-radius: 10px;
+            padding: 30px;
+            border-radius: 15px;
             background: rgba(255, 255, 255, 0.1);
+            width: 200px;
         }
         
         .player-opcao:hover {
@@ -57,13 +173,22 @@
         
         .player-opcao.selecionado {
             background: rgba(0, 255, 0, 0.3);
-            box-shadow: 0 0 20px #0f0;
+            box-shadow: 0 0 30px #0f0;
         }
         
         .player-numero {
-            font-size: 32px;
+            font-size: 28px;
             color: #0f0;
-            margin-bottom: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .player-avatar {
+            font-size: 60px;
+            margin-bottom: 15px;
+            height: 80px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
         
         .player-controles {
@@ -73,19 +198,9 @@
         }
         
         /* Tela de seleção de personagem */
-        .tela-personagens {
-            display: none;
-        }
-        
-        .personagens-titulo {
-            font-size: 36px;
-            color: #0f0;
-            margin-bottom: 30px;
-        }
-        
         .personagens-lista {
             display: flex;
-            gap: 40px;
+            gap: 30px;
             margin-bottom: 40px;
         }
         
@@ -96,7 +211,7 @@
             padding: 20px;
             border-radius: 15px;
             background: rgba(255, 255, 255, 0.1);
-            width: 200px;
+            width: 220px;
         }
         
         .personagem-opcao:hover {
@@ -110,16 +225,16 @@
         }
         
         .personagem-icone {
-            font-size: 80px;
+            font-size: 70px;
             margin-bottom: 15px;
-            height: 120px;
+            height: 100px;
             display: flex;
             align-items: center;
             justify-content: center;
         }
         
         .personagem-nome {
-            font-size: 24px;
+            font-size: 22px;
             color: white;
             margin-bottom: 10px;
             text-transform: uppercase;
@@ -138,6 +253,7 @@
             font-style: italic;
         }
         
+        /* Botões */
         .btn-confirmar {
             background: #0f0;
             color: black;
@@ -149,7 +265,6 @@
             cursor: pointer;
             transition: all 0.3s;
             text-transform: uppercase;
-            margin-top: 20px;
         }
         
         .btn-confirmar:hover {
@@ -165,35 +280,137 @@
             box-shadow: none;
         }
         
-        .aguardando {
-            color: #ff0;
-            font-size: 20px;
-            margin-top: 30px;
-            text-align: center;
-        }
-        
-        .info-jogador {
+        /* Info da sala durante o jogo */
+        .info-sala {
             position: absolute;
             top: 20px;
             left: 20px;
             color: #0f0;
-            font-size: 18px;
+            font-size: 16px;
             background: rgba(0, 0, 0, 0.7);
             padding: 10px 20px;
             border-radius: 10px;
+            z-index: 100;
+        }
+        
+        /* Jogadores na sala */
+        .jogadores-sala {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            color: white;
+            font-size: 16px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px 20px;
+            border-radius: 10px;
+            z-index: 100;
+            max-width: 300px;
+        }
+        
+        .jogador-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 5px;
+            padding: 5px;
+            border-radius: 5px;
+        }
+        
+        .jogador-item.eu {
+            background: rgba(0, 255, 0, 0.2);
+        }
+        
+        /* Jogo principal */
+        #jogoPrincipal {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 100%;
+        }
+        
+        /* Mensagens */
+        .mensagem {
+            color: #ff0;
+            font-size: 18px;
+            margin-top: 20px;
+            text-align: center;
+            min-height: 30px;
+        }
+        
+        /* Loading */
+        .loading {
+            color: #0f0;
+            font-size: 20px;
+            margin-top: 20px;
+            display: none;
+        }
+        
+        .loading span {
+            animation: piscar 1.5s infinite;
+        }
+        
+        @keyframes piscar {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
         }
     </style>
 </head>
 <body>
-    <!-- Tela de seleção de player -->
-    <div id="telaSelecao" class="tela-selecao">
-        <div class="selecao-titulo">PINICO FIGHTER</div>
-        <div class="selecao-subtitulo">ESCOLHA SEU PLAYER</div>
+    <!-- Tela 1: Menu Principal -->
+    <div id="telaMenu" class="tela-container">
+        <img src="imagens/logo.png" alt="Pinico Fighter" class="logo-selecao">
+        <div class="titulo-tela">PINICO FIGHTER</div>
+        <div class="subtitulo-tela">Lute com amigos em salas multiplayer!</div>
+        
+        <div class="menu-opcoes">
+            <button id="btnCriarSala" class="btn-menu">CRIAR NOVA SALA</button>
+            <button id="btnEntrarSala" class="btn-menu">ENTRAR EM UMA SALA</button>
+        </div>
+    </div>
+    
+    <!-- Tela 2: Criar Sala -->
+    <div id="telaCriarSala" class="tela-container" style="display: none;">
+        <img src="imagens/logo.png" alt="Pinico Fighter" class="logo-selecao">
+        <div class="titulo-tela">CRIAR SALA</div>
+        <div class="subtitulo-tela">Digite um nome único para sua sala</div>
+        
+        <div class="form-sala">
+            <input type="text" id="nomeSala" class="input-sala" placeholder="Ex: Sala do João, Fight Club, etc." maxlength="30">
+            <button id="btnCriar" class="btn-confirmar">CRIAR SALA</button>
+            <div id="mensagemCriar" class="mensagem"></div>
+            <button id="btnVoltarCriar" class="btn-voltar">← VOLTAR</button>
+        </div>
+    </div>
+    
+    <!-- Tela 3: Listar Salas -->
+    <div id="telaListarSalas" class="tela-container" style="display: none;">
+        <img src="imagens/logo.png" alt="Pinico Fighter" class="logo-selecao">
+        <div class="titulo-tela">SALAS DISPONÍVEIS</div>
+        <div class="subtitulo-tela">Clique em uma sala para entrar</div>
+        
+        <div id="listaSalas" class="lista-salas">
+            <!-- Salas serão carregadas aqui -->
+        </div>
+        
+        <div id="mensagemSalas" class="mensagem"></div>
+        <div id="loadingSalas" class="loading" style="display: none;">Carregando salas<span>...</span></div>
+        
+        <button id="btnAtualizarSalas" class="btn-confirmar">ATUALIZAR</button>
+        <button id="btnVoltarSalas" class="btn-voltar">← VOLTAR AO MENU</button>
+    </div>
+    
+    <!-- Tela 4: Seleção de Player -->
+    <div id="telaSelecaoPlayer" class="tela-container" style="display: none;">
+        <img src="imagens/logo.png" alt="Pinico Fighter" class="logo-selecao">
+        <div class="titulo-tela">ESCOLHA SEU PLAYER</div>
+        <div class="subtitulo-tela" id="subtituloSala">Sala: <span id="nomeSalaAtual"></span></div>
         
         <div class="selecao-players">
             <div class="player-opcao" data-player="1">
                 <div class="player-numero">PLAYER 1</div>
-                <div class="personagem-icone">👤</div>
+                <div class="player-avatar">👤</div>
                 <div class="player-controles">
                     MOVER: A/D<br>
                     PULAR: W<br>
@@ -204,7 +421,7 @@
             
             <div class="player-opcao" data-player="2">
                 <div class="player-numero">PLAYER 2</div>
-                <div class="personagem-icone">👤</div>
+                <div class="player-avatar">👤</div>
                 <div class="player-controles">
                     MOVER: ←/→<br>
                     PULAR: ↑<br>
@@ -212,15 +429,40 @@
                     CHUTAR: .
                 </div>
             </div>
+            
+            <div class="player-opcao" data-player="3">
+                <div class="player-numero">PLAYER 3</div>
+                <div class="player-avatar">👤</div>
+                <div class="player-controles">
+                    MOVER: J/L<br>
+                    PULAR: I<br>
+                    SOCAR: H<br>
+                    CHUTAR: N
+                </div>
+            </div>
+            
+            <div class="player-opcao" data-player="4">
+                <div class="player-numero">PLAYER 4</div>
+                <div class="player-avatar">👤</div>
+                <div class="player-controles">
+                    MOVER: NUM4/NUM6<br>
+                    PULAR: NUM8<br>
+                    SOCAR: NUM0<br>
+                    CHUTAR: NUM.
+                </div>
+            </div>
         </div>
         
-        <button id="btnContinuar" class="btn-confirmar">CONTINUAR</button>
+        <div id="mensagemPlayer" class="mensagem"></div>
+        <button id="btnContinuarPersonagem" class="btn-confirmar">CONTINUAR</button>
+        <button id="btnVoltarPlayer" class="btn-voltar">← VOLTAR</button>
     </div>
     
-    <!-- Tela de seleção de personagem -->
-    <div id="telaPersonagens" class="tela-selecao tela-personagens">
-        <div class="info-jogador" id="infoJogador"></div>
-        <div class="selecao-titulo">ESCOLHA SEU PERSONAGEM</div>
+    <!-- Tela 5: Seleção de Personagem -->
+    <div id="telaSelecaoPersonagem" class="tela-container" style="display: none;">
+        <img src="imagens/logo.png" alt="Pinico Fighter" class="logo-selecao">
+        <div class="titulo-tela">ESCOLHA SEU PERSONAGEM</div>
+        <div class="subtitulo-tela" id="subtituloSalaPersonagem">Sala: <span id="nomeSalaAtualPersonagem"></span> | Player: <span id="playerSelecionado"></span></div>
         
         <div class="personagens-lista">
             <div class="personagem-opcao" data-personagem="cocozin">
@@ -254,18 +496,23 @@
             </div>
         </div>
         
-        <button id="btnConfirmarPersonagem" class="btn-confirmar" disabled>CONFIRMAR ESCOLHA</button>
-        <div id="aguardandoOp" class="aguardando" style="display: none;">
-            Aguardando outro jogador...
-        </div>
+        <div id="mensagemPersonagem" class="mensagem"></div>
+        <button id="btnConfirmarPersonagem" class="btn-confirmar">ENTRAR NA SALA</button>
+        <button id="btnVoltarPersonagem" class="btn-voltar">← VOLTAR</button>
+        <div id="loadingEntrada" class="loading" style="display: none;">Entrando na sala<span>...</span></div>
     </div>
     
-    <!-- Jogo principal (inicialmente escondido) -->
-    <div id="jogoPrincipal" style="display: none;">
+    <!-- Tela 6: Jogo Principal -->
+    <div id="jogoPrincipal" class="tela-container">
+        <div class="info-sala" id="infoSalaJogo"></div>
+        <div class="jogadores-sala" id="jogadoresSala"></div>
+        
         <div class="logo">
-            <img src="imagens/logo.png" alt="Pinico Fighter Logo">
+            <img src="imagens/logo.png" alt="Pinico Fighter">
         </div>
         <canvas id="game" width="900" height="400"></canvas>
+        
+        <button id="btnSairSala" class="btn-voltar" style="margin-top: 20px;">SAIR DA SALA</button>
     </div>
 
     <!-- Firebase -->
@@ -280,42 +527,251 @@
     <script src="js/ui.js"></script>
     <script src="js/game.js"></script>
     
+    <!-- Sistema de Salas -->
     <script>
-    // Sistema de seleção visual
     document.addEventListener('DOMContentLoaded', function() {
-        const telaSelecao = document.getElementById('telaSelecao');
-        const telaPersonagens = document.getElementById('telaPersonagens');
-        const jogoPrincipal = document.getElementById('jogoPrincipal');
-        const btnContinuar = document.getElementById('btnContinuar');
-        const btnConfirmarPersonagem = document.getElementById('btnConfirmarPersonagem');
-        const infoJogador = document.getElementById('infoJogador');
-        const aguardandoOp = document.getElementById('aguardandoOp');
+        // Referências às telas
+        const telas = {
+            menu: document.getElementById('telaMenu'),
+            criarSala: document.getElementById('telaCriarSala'),
+            listarSalas: document.getElementById('telaListarSalas'),
+            selecaoPlayer: document.getElementById('telaSelecaoPlayer'),
+            selecaoPersonagem: document.getElementById('telaSelecaoPersonagem'),
+            jogo: document.getElementById('jogoPrincipal')
+        };
         
+        // Elementos de input/mensagem
+        const nomeSalaInput = document.getElementById('nomeSala');
+        const mensagemCriar = document.getElementById('mensagemCriar');
+        const listaSalasDiv = document.getElementById('listaSalas');
+        const mensagemSalas = document.getElementById('mensagemSalas');
+        const loadingSalas = document.getElementById('loadingSalas');
+        const nomeSalaAtual = document.getElementById('nomeSalaAtual');
+        const nomeSalaAtualPersonagem = document.getElementById('nomeSalaAtualPersonagem');
+        const playerSelecionadoSpan = document.getElementById('playerSelecionado');
+        const subtituloSala = document.getElementById('subtituloSala');
+        const subtituloSalaPersonagem = document.getElementById('subtituloSalaPersonagem');
+        const mensagemPlayer = document.getElementById('mensagemPlayer');
+        const mensagemPersonagem = document.getElementById('mensagemPersonagem');
+        const loadingEntrada = document.getElementById('loadingEntrada');
+        const infoSalaJogo = document.getElementById('infoSalaJogo');
+        const jogadoresSala = document.getElementById('jogadoresSala');
+        
+        // Variáveis de estado
+        let nomeSalaSelecionada = '';
         let playerSelecionado = null;
         let personagemSelecionado = null;
+        let salaAtual = '';
+        let jogadoresNaSala = {};
         
-        // Seleção de Player
+        // Navegação entre telas
+        function mostrarTela(tela) {
+            Object.values(telas).forEach(t => t.style.display = 'none');
+            tela.style.display = 'flex';
+        }
+        
+        // 1. MENU PRINCIPAL
+        document.getElementById('btnCriarSala').addEventListener('click', () => {
+            mostrarTela(telas.criarSala);
+            nomeSalaInput.value = '';
+            mensagemCriar.textContent = '';
+        });
+        
+        document.getElementById('btnEntrarSala').addEventListener('click', () => {
+            mostrarTela(telas.listarSalas);
+            carregarSalas();
+        });
+        
+        // 2. CRIAR SALA
+        document.getElementById('btnVoltarCriar').addEventListener('click', () => {
+            mostrarTela(telas.menu);
+        });
+        
+        document.getElementById('btnCriar').addEventListener('click', criarSala);
+        nomeSalaInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') criarSala();
+        });
+        
+        function criarSala() {
+            const nomeSala = nomeSalaInput.value.trim();
+            
+            if (!nomeSala) {
+                mensagemCriar.textContent = 'Digite um nome para a sala!';
+                mensagemCriar.style.color = '#ff0';
+                return;
+            }
+            
+            if (nomeSala.length < 3) {
+                mensagemCriar.textContent = 'Nome muito curto (mínimo 3 caracteres)!';
+                mensagemCriar.style.color = '#ff0';
+                return;
+            }
+            
+            if (nomeSala.length > 30) {
+                mensagemCriar.textContent = 'Nome muito longo (máximo 30 caracteres)!';
+                mensagemCriar.style.color = '#ff0';
+                return;
+            }
+            
+            // Verifica se sala já existe via Firebase
+            if (typeof window.verificarECriarSala === 'function') {
+                window.verificarECriarSala(nomeSala, (sucesso, mensagem) => {
+                    if (sucesso) {
+                        nomeSalaSelecionada = nomeSala;
+                        mostrarTelaSelecaoPlayer();
+                    } else {
+                        mensagemCriar.textContent = mensagem;
+                        mensagemCriar.style.color = '#f00';
+                    }
+                });
+            } else {
+                // Fallback
+                nomeSalaSelecionada = nomeSala;
+                mostrarTelaSelecaoPlayer();
+            }
+        }
+        
+        // 3. LISTAR SALAS
+        document.getElementById('btnVoltarSalas').addEventListener('click', () => {
+            mostrarTela(telas.menu);
+        });
+        
+        document.getElementById('btnAtualizarSalas').addEventListener('click', carregarSalas);
+        
+        function carregarSalas() {
+            loadingSalas.style.display = 'block';
+            listaSalasDiv.innerHTML = '';
+            mensagemSalas.textContent = '';
+            
+            if (typeof window.carregarSalasFirebase === 'function') {
+                window.carregarSalasFirebase((salas) => {
+                    loadingSalas.style.display = 'none';
+                    
+                    if (salas.length === 0) {
+                        mensagemSalas.textContent = 'Nenhuma sala encontrada. Crie uma nova sala!';
+                        mensagemSalas.style.color = '#ff0';
+                        return;
+                    }
+                    
+                    salas.forEach(sala => {
+                        const salaDiv = document.createElement('div');
+                        salaDiv.className = 'sala-item';
+                        salaDiv.innerHTML = `
+                            <div>
+                                <div class="sala-nome">${sala.nome}</div>
+                                <div class="sala-info">Jogadores: ${sala.jogadores || 0}/4 • Criada por: ${sala.criador || 'Desconhecido'}</div>
+                            </div>
+                            <div class="sala-info">→</div>
+                        `;
+                        
+                        salaDiv.addEventListener('click', () => {
+                            nomeSalaSelecionada = sala.nome;
+                            mostrarTelaSelecaoPlayer();
+                        });
+                        
+                        listaSalasDiv.appendChild(salaDiv);
+                    });
+                });
+            } else {
+                // Fallback com salas de exemplo
+                setTimeout(() => {
+                    loadingSalas.style.display = 'none';
+                    mensagemSalas.textContent = 'Sistema de salas offline. Use "Criar Sala".';
+                    mensagemSalas.style.color = '#ff0';
+                }, 1000);
+            }
+        }
+        
+        // 4. SELEÇÃO DE PLAYER
+        function mostrarTelaSelecaoPlayer() {
+            nomeSalaAtual.textContent = nomeSalaSelecionada;
+            subtituloSala.textContent = `Sala: ${nomeSalaSelecionada}`;
+            playerSelecionado = null;
+            mensagemPlayer.textContent = '';
+            
+            // Resetar seleção
+            document.querySelectorAll('.player-opcao').forEach(opcao => {
+                opcao.classList.remove('selecionado');
+            });
+            
+            // Verificar jogadores ocupados na sala
+            if (typeof window.verificarJogadoresSala === 'function') {
+                window.verificarJogadoresSala(nomeSalaSelecionada, (jogadoresOcupados) => {
+                    document.querySelectorAll('.player-opcao').forEach(opcao => {
+                        const playerNum = opcao.dataset.player;
+                        if (jogadoresOcupados.includes(playerNum)) {
+                            opcao.style.opacity = '0.5';
+                            opcao.style.cursor = 'not-allowed';
+                            opcao.title = 'Player já ocupado';
+                        } else {
+                            opcao.style.opacity = '1';
+                            opcao.style.cursor = 'pointer';
+                            opcao.title = '';
+                        }
+                    });
+                });
+            }
+            
+            mostrarTela(telas.selecaoPlayer);
+        }
+        
+        document.getElementById('btnVoltarPlayer').addEventListener('click', () => {
+            if (nomeSalaSelecionada) {
+                mostrarTela(telas.listarSalas);
+            } else {
+                mostrarTela(telas.menu);
+            }
+        });
+        
+        // Selecionar player
         document.querySelectorAll('.player-opcao').forEach(opcao => {
             opcao.addEventListener('click', function() {
+                if (this.style.opacity === '0.5') {
+                    mensagemPlayer.textContent = 'Este player já está ocupado!';
+                    mensagemPlayer.style.color = '#f00';
+                    return;
+                }
+                
                 document.querySelectorAll('.player-opcao').forEach(p => {
                     p.classList.remove('selecionado');
                 });
                 this.classList.add('selecionado');
                 playerSelecionado = this.dataset.player;
-                btnContinuar.disabled = false;
+                mensagemPlayer.textContent = '';
+                
+                document.getElementById('btnContinuarPersonagem').disabled = false;
             });
         });
         
-        // Botão Continuar (Player -> Personagem)
-        btnContinuar.addEventListener('click', function() {
-            if (!playerSelecionado) return;
+        // Continuar para seleção de personagem
+        document.getElementById('btnContinuarPersonagem').addEventListener('click', () => {
+            if (!playerSelecionado) {
+                mensagemPlayer.textContent = 'Selecione um player primeiro!';
+                mensagemPlayer.style.color = '#ff0';
+                return;
+            }
             
-            telaSelecao.style.display = 'none';
-            telaPersonagens.style.display = 'flex';
-            infoJogador.textContent = `PLAYER ${playerSelecionado}`;
+            nomeSalaAtualPersonagem.textContent = nomeSalaSelecionada;
+            playerSelecionadoSpan.textContent = `Player ${playerSelecionado}`;
+            subtituloSalaPersonagem.textContent = `Sala: ${nomeSalaSelecionada} | Player: ${playerSelecionado}`;
+            personagemSelecionado = null;
+            mensagemPersonagem.textContent = '';
+            
+            // Resetar seleção
+            document.querySelectorAll('.personagem-opcao').forEach(opcao => {
+                opcao.classList.remove('selecionado');
+            });
+            
+            mostrarTela(telas.selecaoPersonagem);
+            document.getElementById('btnConfirmarPersonagem').disabled = true;
         });
         
-        // Seleção de Personagem
+        // 5. SELEÇÃO DE PERSONAGEM
+        document.getElementById('btnVoltarPersonagem').addEventListener('click', () => {
+            mostrarTela(telas.selecaoPlayer);
+        });
+        
+        // Selecionar personagem
         document.querySelectorAll('.personagem-opcao').forEach(opcao => {
             opcao.addEventListener('click', function() {
                 document.querySelectorAll('.personagem-opcao').forEach(p => {
@@ -323,27 +779,111 @@
                 });
                 this.classList.add('selecionado');
                 personagemSelecionado = this.dataset.personagem;
-                btnConfirmarPersonagem.disabled = false;
+                mensagemPersonagem.textContent = '';
+                
+                document.getElementById('btnConfirmarPersonagem').disabled = false;
             });
         });
         
-        // Botão Confirmar Personagem
-        btnConfirmarPersonagem.addEventListener('click', function() {
-            if (!playerSelecionado || !personagemSelecionado) return;
-            
-            // Esconde botão e mostra "Aguardando..."
-            btnConfirmarPersonagem.style.display = 'none';
-            aguardandoOp.style.display = 'block';
-            
-            // Inicializa o jogo com as escolhas
-            window.iniciarJogoComSelecao(playerSelecionado, personagemSelecionado);
-        });
+        // Entrar na sala
+        document.getElementById('btnConfirmarPersonagem').addEventListener('click', entrarNaSala);
         
-        // Função global para ser chamada pelo firebase-config.js
-        window.mostrarJogoPrincipal = function() {
-            telaPersonagens.style.display = 'none';
-            jogoPrincipal.style.display = 'flex';
+        function entrarNaSala() {
+            if (!playerSelecionado || !personagemSelecionado) {
+                mensagemPersonagem.textContent = 'Selecione um personagem!';
+                mensagemPersonagem.style.color = '#ff0';
+                return;
+            }
+            
+            loadingEntrada.style.display = 'block';
+            mensagemPersonagem.textContent = '';
+            
+            // Registrar jogador na sala via Firebase
+            if (typeof window.registrarJogadorSala === 'function') {
+                window.registrarJogadorSala(nomeSalaSelecionada, playerSelecionado, personagemSelecionado, (sucesso, mensagem) => {
+                    loadingEntrada.style.display = 'none';
+                    
+                    if (sucesso) {
+                        salaAtual = nomeSalaSelecionada;
+                        
+                        // Inicializar jogo
+                        if (typeof window.inicializarJogoSala === 'function') {
+                            window.inicializarJogoSala(nomeSalaSelecionada, playerSelecionado, personagemSelecionado);
+                        }
+                        
+                        // Atualizar info da sala
+                        infoSalaJogo.innerHTML = `
+                            <strong>Sala:</strong> ${salaAtual}<br>
+                            <strong>Player:</strong> ${playerSelecionado}<br>
+                            <strong>Personagem:</strong> ${personagemSelecionado}
+                        `;
+                        
+                        mostrarTela(telas.jogo);
+                    } else {
+                        mensagemPersonagem.textContent = mensagem;
+                        mensagemPersonagem.style.color = '#f00';
+                    }
+                });
+            } else {
+                // Fallback
+                setTimeout(() => {
+                    loadingEntrada.style.display = 'none';
+                    salaAtual = nomeSalaSelecionada;
+                    
+                    if (typeof window.inicializarJogoSala === 'function') {
+                        window.inicializarJogoSala(nomeSalaSelecionada, playerSelecionado, personagemSelecionado);
+                    }
+                    
+                    mostrarTela(telas.jogo);
+                }, 1000);
+            }
+        }
+        
+        // 6. JOGO PRINCIPAL
+        document.getElementById('btnSairSala').addEventListener('click', sairDaSala);
+        
+        function sairDaSala() {
+            // Remover jogador da sala via Firebase
+            if (typeof window.removerJogadorSala === 'function') {
+                window.removerJogadorSala(salaAtual, playerSelecionado);
+            }
+            
+            // Resetar estado
+            salaAtual = '';
+            playerSelecionado = null;
+            personagemSelecionado = null;
+            nomeSalaSelecionada = '';
+            
+            mostrarTela(telas.menu);
+        }
+        
+        // Função para atualizar lista de jogadores na sala (chamada pelo Firebase)
+        window.atualizarJogadoresSala = function(jogadores) {
+            jogadoresNaSala = jogadores;
+            
+            let html = '<strong>Jogadores na Sala:</strong><br>';
+            let count = 0;
+            
+            for (const [playerId, dados] of Object.entries(jogadores)) {
+                count++;
+                const eu = (playerId === `p${playerSelecionado}`);
+                html += `
+                    <div class="jogador-item ${eu ? 'eu' : ''}">
+                        <span>${dados.nome || `Player ${playerId.charAt(1)}`}</span>
+                        <span>${dados.personagem || 'Escolhendo...'}</span>
+                    </div>
+                `;
+            }
+            
+            if (count === 0) {
+                html += 'Nenhum jogador ainda...';
+            }
+            
+            jogadoresSala.innerHTML = html;
         };
+        
+        // Iniciar no menu
+        mostrarTela(telas.menu);
     });
     </script>
 </body>
