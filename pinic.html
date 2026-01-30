@@ -211,7 +211,8 @@
             padding: 20px;
             border-radius: 15px;
             background: rgba(255, 255, 255, 0.1);
-            width: 220px;
+            width: 280px; /* Aumentado para caber especiais */
+            min-height: 380px; /* Aumentado para caber especiais */
         }
         
         .personagem-opcao:hover {
@@ -243,14 +244,45 @@
         .personagem-desc {
             color: #ccc;
             font-size: 14px;
-            margin-bottom: 10px;
+            margin-bottom: 15px;
             min-height: 60px;
         }
         
         .personagem-habilidade {
             color: #ff0;
+            font-size: 14px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        
+        /* Seção de especiais dos personagens */
+        .personagem-especiais {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid rgba(255, 255, 255, 0.2);
+            text-align: left;
+        }
+        
+        .especial-item {
+            margin-bottom: 10px;
+            padding: 5px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 5px;
+        }
+        
+        .especial-nome {
+            display: block;
+            color: #0ff;
             font-size: 12px;
-            font-style: italic;
+            font-weight: bold;
+            margin-bottom: 3px;
+        }
+        
+        .especial-comando {
+            display: block;
+            color: #ff0;
+            font-size: 11px;
+            font-family: 'Courier New', monospace;
         }
         
         /* Botões */
@@ -465,6 +497,7 @@
         <div class="subtitulo-tela" id="subtituloSalaPersonagem">Sala: <span id="nomeSalaAtualPersonagem"></span> | Player: <span id="playerSelecionado"></span></div>
         
         <div class="personagens-lista">
+            <!-- Cocozin -->
             <div class="personagem-opcao" data-personagem="cocozin">
                 <div class="personagem-icone">💩</div>
                 <div class="personagem-nome">Cocozin</div>
@@ -472,9 +505,17 @@
                     O clássico lutador de cocô!<br>
                     Equilibrado em ataque e defesa.
                 </div>
-                <div class="personagem-habilidade">PODER: Bomba de Cocô</div>
+                <div class="personagem-habilidade">ATAQUES ESPECIAIS:</div>
+                
+                <div class="personagem-especiais">
+                    <div class="especial-item">
+                        <span class="especial-nome">Bomba de Cocô:</span>
+                        <span class="especial-comando">[PULAR] + [ABAIXAR] (no ar)</span>
+                    </div>
+                </div>
             </div>
             
+            <!-- Ratazana -->
             <div class="personagem-opcao" data-personagem="ratazana">
                 <div class="personagem-icone">🐀</div>
                 <div class="personagem-nome">Ratazana</div>
@@ -482,9 +523,21 @@
                     Rato boxeador veloz!<br>
                     Socos rápidos e poderosos.
                 </div>
-                <div class="personagem-habilidade">ESPECIAL: Soco Potente</div>
+                <div class="personagem-habilidade">ATAQUES ESPECIAIS:</div>
+                
+                <div class="personagem-especiais">
+                    <div class="especial-item">
+                        <span class="especial-nome">Mordida Rápida:</span>
+                        <span class="especial-comando">[ABAIXAR] + [SOCAR]</span>
+                    </div>
+                    <div class="especial-item">
+                        <span class="especial-nome">Cauda Giratória:</span>
+                        <span class="especial-comando">[ABAIXAR] + [CHUTAR]</span>
+                    </div>
+                </div>
             </div>
             
+            <!-- Peidovélio -->
             <div class="personagem-opcao" data-personagem="peidovélio">
                 <div class="personagem-icone">💨</div>
                 <div class="personagem-nome">Peidovélio</div>
@@ -492,7 +545,18 @@
                     Ser de fumaça tóxico!<br>
                     Ataques com efeito venenoso.
                 </div>
-                <div class="personagem-habilidade">ESPECIAL: Veneno Contínuo</div>
+                <div class="personagem-habilidade">ATAQUES ESPECIAIS:</div>
+                
+                <div class="personagem-especiais">
+                    <div class="especial-item">
+                        <span class="especial-nome">Nuvem Tóxica:</span>
+                        <span class="especial-comando">[ABAIXAR] + [SOCAR]</span>
+                    </div>
+                    <div class="especial-item">
+                        <span class="especial-nome">Tornado de Peido:</span>
+                        <span class="especial-comando">[PULAR] + [ABAIXAR] + [CHUTAR] (no chão)</span>
+                    </div>
+                </div>
             </div>
         </div>
         
