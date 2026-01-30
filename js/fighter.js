@@ -42,6 +42,10 @@ class PersonagemBase {
     mover(keys) {
         if (!this.vivo || jogoTerminou) return;
         
+        // DEBUG: Verificar teclas pressionadas
+        // console.log('Teclas:', keys);
+        // console.log('Controles:', this.ctrl);
+        
         // NOVO: Se estiver deslizando, movimento especial
         if (this.deslizando) {
             this.x += this.dir * this.velDeslize;
@@ -54,11 +58,11 @@ class PersonagemBase {
         }
         
         // NOVO: Sistema de abaixar
-        const teclaBaixo = this.id === "p1" ? "s" : "ArrowDown";
+        const teclaBaixo = this.ctrl.baixo; // Agora usa a propriedade baixo do controle
         if (keys[teclaBaixo] && !this.pulando && !this.chutando && !this.atacando) {
             this.abaixado = true;
             // NOVO: Chutar enquanto abaixado = deslizar
-            const teclaChute = this.id === "p1" ? "c" : ".";
+            const teclaChute = this.ctrl.chute;
             if (keys[teclaChute] && !this.deslizando) {
                 this.deslizar();
                 return;
@@ -2364,6 +2368,7 @@ function criarPersonagem(tipo, x, controles, direcao, id) {
             return new Cocozin(x, "#8B7355", id === "p1" ? "cyan" : "red", controles, direcao, id);
     }
 }
+
 
 
 
