@@ -1,4 +1,13 @@
 function barras() {
+    if (!p1 || !p2) {
+        // Fallback se jogadores não estiverem inicializados
+        ctx.fillStyle = "white";
+        ctx.font = "20px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText("Carregando jogadores...", 450, 200);
+        return;
+    }
+    
     // Barra de vida P1
     ctx.fillStyle = "#333";
     ctx.fillRect(50, 20, 200, 25);
@@ -12,7 +21,7 @@ function barras() {
     } else if (p1.tipo === "peidovélio") {
         corBarraP1 = "#808080"; // Cinza
     } else {
-        corBarraP1 = p1.corSapato;
+        corBarraP1 = p1.corSapato || "#8B7355";
     }
     
     ctx.fillStyle = corBarraP1;
@@ -31,7 +40,7 @@ function barras() {
     } else if (p2.tipo === "peidovélio") {
         corBarraP2 = "#808080"; // Cinza
     } else {
-        corBarraP2 = p2.corSapato;
+        corBarraP2 = p2.corSapato || "#8B7355";
     }
     
     ctx.fillStyle = corBarraP2;
@@ -49,8 +58,8 @@ function barras() {
         return tipo.toUpperCase();
     }
     
-    ctx.fillText(`${formatarNome(p1.tipo)}: ${p1.vida}`, 50, 50);
-    ctx.fillText(`${formatarNome(p2.tipo)}: ${p2.vida}`, 650, 50);
+    ctx.fillText(`${formatarNome(p1.tipo)}: ${Math.max(0, p1.vida)}`, 50, 50);
+    ctx.fillText(`${formatarNome(p2.tipo)}: ${Math.max(0, p2.vida)}`, 650, 50);
     
     // Controles
     ctx.font = "12px Arial";
@@ -80,6 +89,15 @@ function barras() {
     ctx.fillText(especialP1, 50, 85);
     ctx.fillText(especialP2, 650, 85);
     
+    // Instrução de reinício quando jogo terminar
+    if (jogoTerminou) {
+        ctx.font = "14px Arial";
+        ctx.fillStyle = "yellow";
+        ctx.textAlign = "center";
+        ctx.fillText("Pressione R para jogar novamente", 450, 380);
+        ctx.textAlign = "left";
+    }
+    
     // Bordas das barras
     ctx.strokeStyle = "white";
     ctx.lineWidth = 3;
@@ -106,6 +124,8 @@ function barras() {
 }
 
 function desenharTelaFim() {
+    if (!p1 || !p2) return;
+    
     // Overlay semi-transparente
     ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -143,6 +163,6 @@ function desenharTelaFim() {
     
     // Estatísticas
     ctx.font = "14px Arial";
-    ctx.fillText(`Jogador 1: ${p1.tipo} - ${p1.vivo ? "VIVO" : "DERROTADO"}`, canvas.width / 2, 340);
-    ctx.fillText(`Jogador 2: ${p2.tipo} - ${p2.vivo ? "VIVO" : "DERROTADO"}`, canvas.width / 2, 360);
+    ctx.fillText(`Jogador 1: ${p1.tipo} - ${p1.vivo ? "VIVO" : "DERROTADO"} (${p1.vida} HP)`, canvas.width / 2, 340);
+    ctx.fillText(`Jogador 2: ${p2.tipo} - ${p2.vivo ? "VIVO" : "DERROTADO"} (${p2.vida} HP)`, canvas.width / 2, 360);
 }
