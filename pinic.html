@@ -1319,6 +1319,57 @@
         }
     });
     </script>
+    <script>
+// Script de inicialização final
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🚀 Sistema Pinic Fighter inicializando...');
+    
+    // Verificar se todos os elementos necessários existem
+    const canvas = document.getElementById('game');
+    if (!canvas) {
+        console.error('❌ Canvas não encontrado!');
+        return;
+    }
+    
+    // Verificar se imagens existem
+    const logo = document.querySelector('.logo img');
+    if (logo) {
+        logo.onerror = function() {
+            console.warn('⚠️ Logo não encontrada, usando fallback');
+            this.style.display = 'none';
+        };
+    }
+    
+    // Configurar evento de teclas para prevenir comportamento padrão
+    document.addEventListener('keydown', function(e) {
+        // Prevenir scroll com setas
+        if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+            e.preventDefault();
+        }
+    });
+    
+    // Função de debug para verificar estado do jogo
+    window.debugJogo = function() {
+        console.log('🔍 DEBUG DO JOGO:');
+        console.log('- Canvas:', document.getElementById('game') ? 'OK' : 'FALTA');
+        console.log('- Firebase:', typeof firebase !== 'undefined' ? 'OK' : 'FALTA');
+        console.log('- Keys:', typeof keys !== 'undefined' ? 'OK' : 'FALTA');
+        console.log('- Sistema de salas:', typeof window.verificarECriarSala === 'function' ? 'OK' : 'FALTA');
+        console.log('- Personagens:', typeof criarPersonagem === 'function' ? 'OK' : 'FALTA');
+    };
+    
+    // Testar modo demo após 3 segundos se nada acontecer
+    setTimeout(function() {
+        if (!document.querySelector('#jogoPrincipal').style.display === 'flex') {
+            console.log('🔄 Nenhum jogo iniciado, modo demo disponível');
+        }
+    }, 3000);
+    
+    console.log('✅ Sistema inicializado com sucesso!');
+    console.log('💡 Dica: Pressione F12 e digite debugJogo() para verificar estado');
+});
+</script>
 </body>
 </html>
+
 
