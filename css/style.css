@@ -18,3 +18,183 @@ body {
 canvas {
     border: 3px solid #0f0;
 }
+
+/* Adicionar ao final do arquivo existente */
+
+/* Estilos para a seleção (já estão no HTML, mas pode mover para cá) */
+.tela-selecao {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(135deg, #111, #333);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.selecao-titulo {
+    font-size: 48px;
+    color: #0f0;
+    text-shadow: 0 0 10px #0f0;
+    margin-bottom: 30px;
+    font-family: 'Arial Black', sans-serif;
+    text-transform: uppercase;
+}
+
+.selecao-subtitulo {
+    font-size: 24px;
+    color: white;
+    margin-bottom: 50px;
+}
+
+.selecao-players {
+    display: flex;
+    gap: 100px;
+    margin-bottom: 50px;
+}
+
+.player-opcao {
+    text-align: center;
+    cursor: pointer;
+    transition: transform 0.3s;
+    padding: 20px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.player-opcao:hover {
+    transform: scale(1.1);
+    background: rgba(0, 255, 0, 0.2);
+}
+
+.player-opcao.selecionado {
+    background: rgba(0, 255, 0, 0.3);
+    box-shadow: 0 0 20px #0f0;
+}
+
+.player-numero {
+    font-size: 32px;
+    color: #0f0;
+    margin-bottom: 10px;
+}
+
+.player-controles {
+    color: #ccc;
+    font-size: 14px;
+    margin-top: 10px;
+}
+
+/* Tela de seleção de personagem */
+.tela-personagens {
+    display: none;
+}
+
+.personagens-titulo {
+    font-size: 36px;
+    color: #0f0;
+    margin-bottom: 30px;
+}
+
+.personagens-lista {
+    display: flex;
+    gap: 40px;
+    margin-bottom: 40px;
+}
+
+.personagem-opcao {
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s;
+    padding: 20px;
+    border-radius: 15px;
+    background: rgba(255, 255, 255, 0.1);
+    width: 200px;
+}
+
+.personagem-opcao:hover {
+    transform: translateY(-10px);
+    background: rgba(0, 255, 0, 0.2);
+}
+
+.personagem-opcao.selecionado {
+    background: rgba(0, 255, 0, 0.3);
+    box-shadow: 0 0 30px #0f0;
+}
+
+.personagem-icone {
+    font-size: 80px;
+    margin-bottom: 15px;
+    height: 120px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.personagem-nome {
+    font-size: 24px;
+    color: white;
+    margin-bottom: 10px;
+    text-transform: uppercase;
+}
+
+.personagem-desc {
+    color: #ccc;
+    font-size: 14px;
+    margin-bottom: 10px;
+    min-height: 60px;
+}
+
+.personagem-habilidade {
+    color: #ff0;
+    font-size: 12px;
+    font-style: italic;
+}
+
+.btn-confirmar {
+    background: #0f0;
+    color: black;
+    border: none;
+    padding: 15px 40px;
+    font-size: 20px;
+    font-weight: bold;
+    border-radius: 50px;
+    cursor: pointer;
+    transition: all 0.3s;
+    text-transform: uppercase;
+    margin-top: 20px;
+}
+
+.btn-confirmar:hover {
+    background: #0c0;
+    transform: scale(1.1);
+    box-shadow: 0 0 20px #0f0;
+}
+
+.btn-confirmar:disabled {
+    background: #666;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+.aguardando {
+    color: #ff0;
+    font-size: 20px;
+    margin-top: 30px;
+    text-align: center;
+}
+
+.info-jogador {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    color: #0f0;
+    font-size: 18px;
+    background: rgba(0, 0, 0, 0.7);
+    padding: 10px 20px;
+    border-radius: 10px;
+}
