@@ -1,3 +1,16 @@
+
+// fighter.js - ADICIONE NO TOPO DO ARQUIVO
+// Conectar com o sistema de teclas do utils.js
+if (typeof keys === 'undefined' && typeof window.keys !== 'undefined') {
+    // Se keys não está definido localmente, mas window.keys existe, usamos ele
+    var keys = window.keys;
+    console.log('🔑 Conectando fighter.js ao sistema de teclas global');
+} else if (typeof keys === 'undefined') {
+    console.error('❌ Sistema de teclas não encontrado!');
+    // Cria um objeto de fallback
+    var keys = {};
+}
+
 // CLASSE BASE PARA TODOS OS PERSONAGENS
 class PersonagemBase {
     constructor(x, cor, corSapato, controles, direcao, id, tipo) {
@@ -2485,6 +2498,7 @@ class Peidovélio extends PersonagemBase {
         this.usandoEspecial = false;
     }
 }
+
 
 
 
