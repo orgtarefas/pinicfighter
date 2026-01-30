@@ -18,6 +18,7 @@ let salaAtual = null;
 let meuPlayerId = null;
 let meuPersonagem = null;
 let jogadoresSala = {};
+let meuNome = "";
 
 // ============================================
 // FUNÇÕES PARA O SISTEMA DE SALAS (chamadas pelo HTML)
@@ -31,13 +32,20 @@ window.verificarECriarSala = function(nomeSala, callback) {
         if (snapshot.exists()) {
             callback(false, 'Esta sala já existe!');
         } else {
+            // Perguntar nome antes de criar
+            meuNome = prompt("Digite seu nome (apelido):") || "Anônimo";
+            if (!meuNome) {
+                meuNome = "Anônimo";
+            }
+            
             // Criar nova sala
             const dadosSala = {
                 nome: nomeSala,
-                criador: prompt("Digite seu nome (apelido):") || "Anônimo",
+                criador: meuNome,
                 criadoEm: Date.now(),
                 status: 'ativa',
-                maxJogadores: 4
+                maxJogadores: 4,
+                ultimaAtividade: Date.now()
             };
             
             refSala.set(dadosSala).then(() => {
@@ -64,6 +72,14 @@ window.carregarSalasFirebase = function(callback) {
                     let jogadoresCount = 0;
                     if (info.jogadores) {
                         jogadoresCount = Object.keys(info.jogadores).length;
+                    }
+                    
+                    // Verificar se sala não está muito antiga (mais de 2 horas)
+                    const duasHorasAtras = Date.now() - (2 * 60 * 60 * 1000);
+                    if (info.criadoEm && info.criadoEm < duasHorasAtras && jogadoresCount === 0) {
+                        // Marcar sala antiga vazia como inativa
+                        db.ref(`salas/${nome}/status`).set('inativa');
+                        continue;
                     }
                     
                     salas.push({
@@ -108,19 +124,31 @@ window.registrarJogadorSala = function(nomeSala, playerNum, personagem, callback
             return;
         }
         
+        // Pegar nome se ainda não tem
+        if (!meuNome) {
+            meuNome = prompt("Digite seu nome (apelido):") || `Player ${playerNum}`;
+            if (!meuNome) {
+                meuNome = `Player ${playerNum}`;
+            }
+        }
+        
         // Registrar jogador
         const dadosJogador = {
-            nome: prompt("Digite seu nome (apelido):") || `Player ${playerNum}`,
+            nome: meuNome,
             personagem: personagem,
             entrada: Date.now(),
             vida: 100,
-            vivo: true
+            vivo: true,
+            ultimaAtualizacao: Date.now()
         };
         
         db.ref(`salas/${nomeSala}/jogadores/${playerId}`).set(dadosJogador).then(() => {
             salaAtual = nomeSala;
             meuPlayerId = playerId;
             meuPersonagem = personagem;
+            
+            // Atualizar timestamp da sala
+            db.ref(`salas/${nomeSala}/ultimaAtividade`).set(Date.now());
             
             // Configurar listeners para esta sala
             configurarListenersSala(nomeSala);
@@ -138,29 +166,42 @@ window.registrarJogadorSala = function(nomeSala, playerNum, personagem, callback
 window.removerJogadorSala = function(nomeSala, playerNum) {
     const playerId = `p${playerNum}`;
     
+    if (!salaAtual || !meuPlayerId) {
+        console.log('Jogador já foi removido');
+        return;
+    }
+    
     db.ref(`salas/${nomeSala}/jogadores/${playerId}`).remove().then(() => {
         console.log('Jogador removido da sala');
         
-        // Verificar se sala ficou vazia para removê-la
+        // Atualizar timestamp da sala
+        db.ref(`salas/${nomeSala}/ultimaAtividade`).set(Date.now());
+        
+        // Verificar se sala ficou vazia
         db.ref(`salas/${nomeSala}/jogadores`).once('value').then(snapshot => {
-            if (!snapshot.exists() || Object.keys(snapshot.val() || {}).length === 0) {
-                // Marcar sala como inativa após 1 minuto (para evitar recriação rápida)
+            const jogadores = snapshot.val() || {};
+            if (Object.keys(jogadores).length === 0) {
+                // Sala vazia - marcar como inativa após 30 segundos
                 setTimeout(() => {
                     db.ref(`salas/${nomeSala}/status`).set('inativa');
-                }, 60000);
+                    console.log(`Sala ${nomeSala} marcada como inativa`);
+                }, 30000);
             }
         });
     }).catch(error => {
         console.error('Erro ao remover jogador:', error);
     });
     
-    // Limpar listeners
+    // Limpar listeners e variáveis
     if (salaAtual === nomeSala) {
         db.ref(`salas/${nomeSala}/jogadores`).off();
         db.ref(`salas/${nomeSala}/jogo`).off();
+        
         salaAtual = null;
         meuPlayerId = null;
         meuPersonagem = null;
+        meuNome = "";
+        jogadoresSala = {};
     }
 };
 
@@ -184,6 +225,8 @@ function configurarListenersSala(nomeSala) {
         const jogadores = snapshot.val() || {};
         jogadoresSala = jogadores;
         
+        console.log('Jogadores na sala:', Object.keys(jogadores));
+        
         // Atualizar UI com lista de jogadores
         if (typeof window.atualizarJogadoresSala === 'function') {
             window.atualizarJogadoresSala(jogadores);
@@ -191,6 +234,9 @@ function configurarListenersSala(nomeSala) {
         
         // Sincronizar com game.js
         sincronizarJogadoresComGame(jogadores);
+        
+        // Atualizar timestamp da sala
+        db.ref(`salas/${nomeSala}/ultimaAtividade`).set(Date.now());
     });
     
     // Escutar dados do jogo na sala
@@ -202,6 +248,29 @@ function configurarListenersSala(nomeSala) {
             window.sincronizarDadosJogo(dadosJogo);
         }
     });
+    
+    // Monitorar atividade dos jogadores (remover inativos)
+    setInterval(() => {
+        if (salaAtual && meuPlayerId) {
+            // Atualizar timestamp do jogador
+            db.ref(`salas/${salaAtual}/jogadores/${meuPlayerId}/ultimaAtualizacao`).set(Date.now());
+            
+            // Verificar jogadores inativos (mais de 10 segundos sem atualizar)
+            const agora = Date.now();
+            const limiteInatividade = 10000; // 10 segundos
+            
+            for (const [playerId, dados] of Object.entries(jogadoresSala)) {
+                if (playerId !== meuPlayerId) {
+                    const ultimaAtualizacao = dados.ultimaAtualizacao || dados.entrada || 0;
+                    if (agora - ultimaAtualizacao > limiteInatividade) {
+                        // Jogador inativo - remover
+                        db.ref(`salas/${salaAtual}/jogadores/${playerId}`).remove();
+                        console.log(`Removendo jogador inativo: ${playerId}`);
+                    }
+                }
+            }
+        }
+    }, 5000); // Verificar a cada 5 segundos
 }
 
 // ============================================
@@ -219,12 +288,12 @@ function sincronizarJogadoresComGame(jogadores) {
 function enviarDadosJogadorSala(dados) {
     if (!salaAtual || !meuPlayerId) return;
     
-    db.ref(`salas/${salaAtual}/jogadores/${meuPlayerId}`).update({
-        vida: dados.vida || 100,
-        vivo: dados.vivo !== undefined ? dados.vivo : true,
-        x: dados.x || 0,
-        y: dados.y || 0
-    }).catch(error => {
+    const dadosAtualizados = {
+        ...dados,
+        ultimaAtualizacao: Date.now()
+    };
+    
+    db.ref(`salas/${salaAtual}/jogadores/${meuPlayerId}`).update(dadosAtualizados).catch(error => {
         console.error('Erro ao enviar dados do jogador:', error);
     });
 }
