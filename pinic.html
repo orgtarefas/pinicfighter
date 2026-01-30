@@ -1033,6 +1033,7 @@
             loadingEntrada.style.display = 'block';
             mensagemPersonagem.textContent = '';
             document.getElementById('btnConfirmarPersonagem').disabled = true;
+            document.getElementById('btnVoltarPersonagem').disabled = true;
             
             // 3. REGISTRAR NO FIREBASE (ou fallback)
             if (typeof window.registrarJogadorSala === 'function') {
@@ -1041,13 +1042,14 @@
                     playerSelecionado, 
                     personagemSelecionado, 
                     
-                    function(sucesso, mensagem) {
+                    function(sucesso, mensagem, criador) {
                         // Esconder loading
                         loadingEntrada.style.display = 'none';
                         document.getElementById('btnConfirmarPersonagem').disabled = false;
+                        document.getElementById('btnVoltarPersonagem').disabled = false;
                         
                         if (sucesso) {
-                            console.log('✅ Entrou na sala com sucesso');
+                            console.log('✅ Entrou na sala com sucesso', { criador });
                             
                             // Atualizar estado local
                             salaAtual = nomeSalaSelecionada;
@@ -1058,6 +1060,7 @@
                                     sala: salaAtual,
                                     player: playerSelecionado,
                                     personagem: personagemSelecionado,
+                                    criador: criador,
                                     timestamp: Date.now()
                                 }));
                             } catch (e) {
@@ -1065,11 +1068,46 @@
                             }
                             
                             // Atualizar informações na tela do jogo
+                            const isCriador = criador === `p${playerSelecionado}`;
                             infoSalaJogo.innerHTML = `
                                 <strong>🎮 SALA:</strong> ${salaAtual}<br>
-                                <strong>👤 PLAYER:</strong> ${playerSelecionado}<br>
+                                <strong>👤 PLAYER:</strong> ${playerSelecionado} ${isCriador ? '👑' : ''}<br>
                                 <strong>⚔️ PERSONAGEM:</strong> ${personagemSelecionado}
                             `;
+                            
+                            // Configurar botões de exclusão se for o criador
+                            if (isCriador) {
+                                const btnExcluirSala = document.getElementById('btnExcluirSala');
+                                const btnExcluirSalaFooter = document.getElementById('btnExcluirSalaFooter');
+                                
+                                if (btnExcluirSala) btnExcluirSala.style.display = 'block';
+                                if (btnExcluirSalaFooter) btnExcluirSalaFooter.style.display = 'block';
+                                
+                                // Adicionar evento de exclusão
+                                btnExcluirSala?.addEventListener('click', function() {
+                                    if (confirm('🚨 TEM CERTEZA QUE DESEJA EXCLUIR ESTA SALA?\n\nTodos os jogadores serão desconectados e a sala será permanentemente removida.')) {
+                                        window.excluirSalaFirebase(salaAtual).then(() => {
+                                            alert('✅ Sala excluída com sucesso!');
+                                            window.pararJogo();
+                                            mostrarTela(telas.menu);
+                                        }).catch(error => {
+                                            alert('❌ Erro ao excluir sala: ' + error);
+                                        });
+                                    }
+                                });
+                                
+                                btnExcluirSalaFooter?.addEventListener('click', function() {
+                                    if (confirm('🚨 TEM CERTEZA QUE DESEJA EXCLUIR ESTA SALA?\n\nTodos os jogadores serão desconectados e a sala será permanentemente removida.')) {
+                                        window.excluirSalaFirebase(salaAtual).then(() => {
+                                            alert('✅ Sala excluída com sucesso!');
+                                            window.pararJogo();
+                                            mostrarTela(telas.menu);
+                                        }).catch(error => {
+                                            alert('❌ Erro ao excluir sala: ' + error);
+                                        });
+                                    }
+                                });
+                            }
                             
                             // Iniciar sistema de heartbeat
                             try {
@@ -1082,24 +1120,54 @@
                                 console.error('❌ Erro ao iniciar heartbeat:', error);
                             }
                             
-                            // Iniciar o jogo principal
-                            if (typeof window.inicializarJogoSala === 'function') {
+                            // Iniciar o jogo principal COM INFORMAÇÃO DO CRIADOR
+                            if (typeof window.inicializarJogoMultiplayer === 'function') {
+                                window.inicializarJogoMultiplayer(
+                                    nomeSalaSelecionada, 
+                                    playerSelecionado, 
+                                    personagemSelecionado,
+                                    criador  // PASSA A INFORMAÇÃO DO CRIADOR
+                                );
+                            } else if (typeof window.inicializarJogoSala === 'function') {
+                                // Fallback para versão antiga da função
                                 window.inicializarJogoSala(
                                     nomeSalaSelecionada, 
                                     playerSelecionado, 
                                     personagemSelecionado
                                 );
                             } else {
-                                console.log('⚠️ Função inicializarJogoSala não encontrada');
+                                console.log('⚠️ Função de inicializar jogo não encontrada');
                                 // Fallback: mostrar mensagem
                                 infoSalaJogo.innerHTML += '<br><br><small style="color:#ff0">Modo demonstração ativado</small>';
+                                
+                                // Iniciar modo demo
+                                iniciarModoDemo();
                             }
                             
                             // Mudar para tela do jogo
                             mostrarTela(telas.jogo);
                             
+                            // Configurar evento para sair da sala
+                            document.getElementById('btnSairSala').addEventListener('click', function() {
+                                if (confirm('Deseja realmente sair da sala?')) {
+                                    sairDaSala();
+                                }
+                            });
+                            
                             // Scroll para o topo (caso necessário)
                             window.scrollTo(0, 0);
+                            
+                            // Feedback visual
+                            setTimeout(() => {
+                                const ctx = document.getElementById('game')?.getContext('2d');
+                                if (ctx) {
+                                    ctx.fillStyle = 'rgba(0, 255, 0, 0.3)';
+                                    ctx.fillRect(0, 0, 900, 400);
+                                    setTimeout(() => {
+                                        ctx.clearRect(0, 0, 900, 400);
+                                    }, 1000);
+                                }
+                            }, 100);
                             
                         } else {
                             // ERRO: mostrar mensagem
@@ -1120,29 +1188,77 @@
                 setTimeout(() => {
                     loadingEntrada.style.display = 'none';
                     document.getElementById('btnConfirmarPersonagem').disabled = false;
+                    document.getElementById('btnVoltarPersonagem').disabled = false;
                     
                     salaAtual = nomeSalaSelecionada;
+                    
+                    // No modo demo, o primeiro jogador é sempre o criador
+                    const isCriador = playerSelecionado === '1';
+                    const criador = isCriador ? 'p1' : null;
                     
                     // Atualizar informações
                     infoSalaJogo.innerHTML = `
                         <strong>🎮 SALA:</strong> ${salaAtual}<br>
-                        <strong>👤 PLAYER:</strong> ${playerSelecionado}<br>
+                        <strong>👤 PLAYER:</strong> ${playerSelecionado} ${isCriador ? '👑' : ''}<br>
                         <strong>⚔️ PERSONAGEM:</strong> ${personagemSelecionado}<br>
                         <br>
                         <small style="color:#ff0">⚠️ Modo demonstração (sem Firebase)</small>
                     `;
+                    
+                    // Mostrar botão de exclusão se for criador no modo demo
+                    if (isCriador) {
+                        const btnExcluirSala = document.getElementById('btnExcluirSala');
+                        const btnExcluirSalaFooter = document.getElementById('btnExcluirSalaFooter');
+                        
+                        if (btnExcluirSala) {
+                            btnExcluirSala.style.display = 'block';
+                            btnExcluirSala.addEventListener('click', function() {
+                                if (confirm('Deseja sair do modo demonstração?')) {
+                                    alert('No modo demonstração, a "exclusão" apenas retorna ao menu.');
+                                    sairDaSala();
+                                }
+                            });
+                        }
+                        
+                        if (btnExcluirSalaFooter) {
+                            btnExcluirSalaFooter.style.display = 'block';
+                            btnExcluirSalaFooter.addEventListener('click', function() {
+                                if (confirm('Deseja sair do modo demonstração?')) {
+                                    alert('No modo demonstração, a "exclusão" apenas retorna ao menu.');
+                                    sairDaSala();
+                                }
+                            });
+                        }
+                    }
                     
                     // Iniciar heartbeat mesmo no modo demo
                     if (typeof iniciarHeartbeat === 'function') {
                         iniciarHeartbeat();
                     }
                     
-                    // Tentar iniciar jogo (modo single player)
-                    if (typeof window.inicializarJogoSala === 'function') {
+                    // Iniciar jogo (modo single player com demo)
+                    if (typeof window.inicializarJogoMultiplayer === 'function') {
+                        window.inicializarJogoMultiplayer(
+                            nomeSalaSelecionada, 
+                            playerSelecionado, 
+                            personagemSelecionado,
+                            criador
+                        );
+                    } else if (typeof window.inicializarJogoSala === 'function') {
                         window.inicializarJogoSala(nomeSalaSelecionada, playerSelecionado, personagemSelecionado);
+                    } else {
+                        // Fallback extremo - apenas mostrar canvas
+                        iniciarModoDemoBasico();
                     }
                     
                     mostrarTela(telas.jogo);
+                    
+                    // Configurar evento para sair da sala
+                    document.getElementById('btnSairSala').addEventListener('click', function() {
+                        if (confirm('Deseja sair do modo demonstração?')) {
+                            sairDaSala();
+                        }
+                    });
                     
                     // Feedback
                     setTimeout(() => {
@@ -1150,6 +1266,116 @@
                     }, 500);
                     
                 }, 1500);
+            }
+        }
+        
+        // Função auxiliar para iniciar modo demo básico
+        function iniciarModoDemoBasico() {
+            const canvas = document.getElementById('game');
+            const ctx = canvas.getContext('2d');
+            
+            if (!canvas || !ctx) return;
+            
+            // Configurar canvas
+            canvas.width = 900;
+            canvas.height = 400;
+            
+            // Personagem básico
+            const jogador = {
+                x: 150,
+                y: 260,
+                largura: 50,
+                altura: 80,
+                vx: 0,
+                vy: 0,
+                color: personagemSelecionado === 'cocozin' ? '#8B7355' : 
+                       personagemSelecionado === 'ratazana' ? '#696969' : '#808080',
+                isGrounded: true,
+                vida: 100
+            };
+            
+            // Controles básicos
+            const controles = {
+                '1': { left: 'a', right: 'd', up: 'w', punch: 'f', kick: 'c' },
+                '2': { left: 'ArrowLeft', right: 'ArrowRight', up: 'ArrowUp', punch: 'Enter', kick: '.' },
+                '3': { left: 'j', right: 'l', up: 'i', punch: 'h', kick: 'n' },
+                '4': { left: 'Numpad4', right: 'Numpad6', up: 'Numpad8', punch: 'Numpad0', kick: 'NumpadDecimal' }
+            };
+            
+            const ctrl = controles[playerSelecionado] || controles['1'];
+            
+            // Event listeners
+            document.addEventListener('keydown', (e) => {
+                if (e.key === ctrl.left) jogador.vx = -5;
+                if (e.key === ctrl.right) jogador.vx = 5;
+                if (e.key === ctrl.up && jogador.isGrounded) {
+                    jogador.vy = -15;
+                    jogador.isGrounded = false;
+                }
+            });
+            
+            document.addEventListener('keyup', (e) => {
+                if (e.key === ctrl.left || e.key === ctrl.right) {
+                    jogador.vx = 0;
+                }
+            });
+            
+            // Game loop básico
+            function gameLoop() {
+                // Física básica
+                jogador.vy += 0.8;
+                jogador.x += jogador.vx;
+                jogador.y += jogador.vy;
+                
+                // Limites
+                jogador.x = Math.max(0, Math.min(850, jogador.x));
+                
+                // Chão
+                if (jogador.y >= 260) {
+                    jogador.y = 260;
+                    jogador.vy = 0;
+                    jogador.isGrounded = true;
+                }
+                
+                // Render
+                ctx.clearRect(0, 0, 900, 400);
+                
+                // Fundo
+                ctx.fillStyle = '#111';
+                ctx.fillRect(0, 0, 900, 400);
+                
+                // Chão
+                ctx.fillStyle = '#333';
+                ctx.fillRect(0, 340, 900, 60);
+                
+                // Personagem
+                ctx.fillStyle = jogador.color;
+                ctx.fillRect(jogador.x, jogador.y, jogador.largura, jogador.altura);
+                
+                // Informações
+                ctx.fillStyle = '#0f0';
+                ctx.font = '16px Arial';
+                ctx.fillText(`Player ${playerSelecionado}: ${personagemSelecionado}`, jogador.x, jogador.y - 10);
+                ctx.fillText(`Sala: ${salaAtual}`, 20, 30);
+                ctx.fillText(`Vida: ${jogador.vida}`, 20, 50);
+                ctx.fillText('MODO DEMONSTRAÇÃO - Use A/D para mover, W para pular', 300, 380);
+                
+                requestAnimationFrame(gameLoop);
+            }
+            
+            gameLoop();
+        }
+        
+        // Função para iniciar modo demo mais avançado
+        function iniciarModoDemo() {
+            const canvas = document.getElementById('game');
+            if (!canvas) return;
+            
+            // Inicializar jogo básico se as funções principais não existirem
+            if (typeof window.inicializarJogoMultiplayer !== 'function' && 
+                typeof window.inicializarJogoSala !== 'function') {
+                iniciarModoDemoBasico();
+                return;
             }
         }
         
@@ -1382,6 +1608,7 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 </body>
 </html>
+
 
 
 
