@@ -1,4 +1,13 @@
+// ui.js ATUALIZADO PARA SISTEMA MULTIPLAYER 1-4 JOGADORES
+
 function barras() {
+    // Esta função não é mais usada no modo multiplayer principal
+    // Mantemos para compatibilidade com modo single player
+    if (salaAtualGame) {
+        // Se estamos em modo multiplayer, usar barrasMultiplayer do game.js
+        return;
+    }
+    
     if (!p1 || !p2) {
         // Fallback se jogadores não estiverem inicializados
         ctx.fillStyle = "white";
@@ -124,6 +133,13 @@ function barras() {
 }
 
 function desenharTelaFim() {
+    // Esta função não é mais usada no modo multiplayer principal
+    // Mantemos para compatibilidade com modo single player
+    if (salaAtualGame) {
+        // Se estamos em modo multiplayer, usar desenharTelaFimMultiplayer do game.js
+        return;
+    }
+    
     if (!p1 || !p2) return;
     
     // Overlay semi-transparente
@@ -166,3 +182,148 @@ function desenharTelaFim() {
     ctx.fillText(`Jogador 1: ${p1.tipo} - ${p1.vivo ? "VIVO" : "DERROTADO"} (${p1.vida} HP)`, canvas.width / 2, 340);
     ctx.fillText(`Jogador 2: ${p2.tipo} - ${p2.vivo ? "VIVO" : "DERROTADO"} (${p2.vida} HP)`, canvas.width / 2, 360);
 }
+
+// ============================================
+// FUNÇÕES AUXILIARES PARA O MULTIPLAYER
+// ============================================
+
+// Função para desenhar controles específicos do player
+function desenharControlesPlayer(playerNum) {
+    const controles = {
+        '1': {
+            mover: "A / D",
+            pular: "W",
+            soco: "F",
+            chute: "C",
+            abaixar: "S",
+            deslizar: "S + C"
+        },
+        '2': {
+            mover: "← / →",
+            pular: "↑",
+            soco: "Enter",
+            chute: ".",
+            abaixar: "↓",
+            deslizar: "↓ + ."
+        },
+        '3': {
+            mover: "J / L",
+            pular: "I",
+            soco: "H",
+            chute: "N",
+            abaixar: "K",
+            deslizar: "K + N"
+        },
+        '4': {
+            mover: "NUM4 / NUM6",
+            pular: "NUM8",
+            soco: "NUM0",
+            chute: "NUM.",
+            abaixar: "NUM5",
+            deslizar: "NUM5 + NUM."
+        }
+    };
+    
+    const ctrl = controles[playerNum] || controles['1'];
+    
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "12px Arial";
+    ctx.textAlign = "left";
+    
+    const posicoes = {
+        '1': { x: 50, y: 70 },
+        '2': { x: 650, y: 70 },
+        '3': { x: 50, y: 100 },
+        '4': { x: 650, y: 100 }
+    };
+    
+    const pos = posicoes[playerNum] || { x: 50, y: 70 };
+    
+    ctx.fillText(`Mover: ${ctrl.mover} | Pular: ${ctrl.pular}`, pos.x, pos.y);
+    ctx.fillText(`Soco: ${ctrl.soco} | Chute: ${ctrl.chute}`, pos.x, pos.y + 15);
+    ctx.fillText(`Abaixar: ${ctrl.abaixar} | Deslizar: ${ctrl.deslizar}`, pos.x, pos.y + 30);
+}
+
+// Função para desenhar instruções especiais por personagem
+function desenharInstrucoesEspeciais(tipo, playerNum) {
+    const especial = {
+        'cocozin': "ESPECIAL: Pular + Baixo = Bomba de Cocô",
+        'ratazana': "ESPECIAIS: Abaixar + Soco = Mordida | Abaixar + Chute = Cauda Giratória",
+        'peidovélio': "ESPECIAIS: Abaixar + Soco = Nuvem Tóxica | Pular+Baixo+Chute = Tornado"
+    };
+    
+    const posicoes = {
+        '1': { x: 50, y: 110 },
+        '2': { x: 650, y: 110 },
+        '3': { x: 50, y: 140 },
+        '4': { x: 650, y: 140 }
+    };
+    
+    const pos = posicoes[playerNum];
+    if (!pos) return;
+    
+    ctx.fillStyle = "#ff0";
+    ctx.font = "11px Arial";
+    ctx.fillText(especial[tipo] || "ESPECIAL: Consulte o menu de seleção", pos.x, pos.y);
+}
+
+// Função para desenhar status da sala
+function desenharStatusSala() {
+    if (!salaAtualGame) return;
+    
+    ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+    ctx.fillRect(350, 10, 200, 60);
+    
+    ctx.fillStyle = "#0f0";
+    ctx.font = "bold 14px Arial";
+    ctx.textAlign = "center";
+    ctx.fillText(`SALA: ${salaAtualGame}`, 450, 30);
+    
+    // Contar jogadores ativos
+    let jogadoresAtivos = 0;
+    for (const playerId in jogadores) {
+        if (jogadores[playerId] && jogadores[playerId].ativo) {
+            jogadoresAtivos++;
+        }
+    }
+    
+    ctx.fillStyle = "white";
+    ctx.font = "12px Arial";
+    ctx.fillText(`Jogadores: ${jogadoresAtivos}/4`, 450, 50);
+    
+    if (jogadoresAtivos === 1) {
+        ctx.fillStyle = "yellow";
+        ctx.fillText("Aguardando outros jogadores...", 450, 70);
+    }
+    
+    ctx.textAlign = "left";
+}
+
+// Função para desenhar instrução de saída
+function desenharInstrucaoSair() {
+    ctx.fillStyle = "white";
+    ctx.font = "12px Arial";
+    ctx.textAlign = "center";
+    ctx.fillText("Pressione ESC para voltar ao menu", 450, 390);
+    ctx.textAlign = "left";
+}
+
+// Função para desenhar mensagem de espera
+function desenharMensagemEspera() {
+    const mensagens = [
+        "Aguardando outros jogadores...",
+        "Pratique seus movimentos!",
+        "Outros jogadores podem entrar a qualquer momento",
+        "Use este tempo para dominar seus especiais!"
+    ];
+    
+    const index = Math.floor(Date.now() / 3000) % mensagens.length;
+    
+    ctx.fillStyle = "yellow";
+    ctx.font = "14px Arial";
+    ctx.textAlign = "center";
+    ctx.fillText(mensagens[index], 450, 350);
+    ctx.textAlign = "left";
+}
+
+console.log('✓ UI.js carregado com funções para multiplayer');
