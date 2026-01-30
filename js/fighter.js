@@ -445,6 +445,30 @@ class PersonagemBase {
     }
 }
 
+// Mapeamento de cores para os players
+const CORES_PLAYERS = {
+    'p1': { corSapato: "cyan", cor: "#8B7355" },
+    'p2': { corSapato: "red", cor: "#8B7355" },
+    'p3': { corSapato: "yellow", cor: "#8B7355" },
+    'p4': { corSapato: "lime", cor: "#8B7355" }
+};
+
+// Atualizar a função criarPersonagem para usar cores baseadas no player:
+function criarPersonagem(tipo, x, controles, direcao, id) {
+    // Determinar cores baseadas no ID do player
+    const cores = CORES_PLAYERS[id] || CORES_PLAYERS['p1'];
+    
+    switch(tipo) {
+        case "ratazana":
+            return new Ratazana(x, "#666666", cores.corSapato, controles, direcao, id);
+        case "peidovélio":
+            return new Peidovélio(x, "#D3D3D3", cores.corSapato, controles, direcao, id);
+        case "cocozin":
+        default:
+            return new Cocozin(x, cores.cor, cores.corSapato, controles, direcao, id);
+    }
+}
+
 // CLASSE COCOZIN (PERSONAGEM ORIGINAL)
 class Cocozin extends PersonagemBase {
     constructor(x, cor, corSapato, controles, direcao, id) {
@@ -1519,4 +1543,5 @@ function criarPersonagem(tipo, x, controles, direcao, id) {
             return new Cocozin(x, "#8B7355", id === "p1" ? "cyan" : "red", controles, direcao, id);
     }
 }
+
 
