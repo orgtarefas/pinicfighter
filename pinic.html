@@ -567,17 +567,26 @@
     </div>
     
     <!-- Tela 6: Jogo Principal -->
-    <!-- Tela 6: Jogo Principal -->
     <div id="jogoPrincipal" class="tela-container">
         <div class="info-sala" id="infoSalaJogo"></div>
-        <div class="jogadores-sala" id="jogadoresSala"></div>
+        <div class="jogadores-sala" id="jogadoresSala">
+            <!-- Botão para dono da sala -->
+            <button id="btnExcluirSala" class="btn-excluir" style="display: none;">
+                🗑️ EXCLUIR SALA
+            </button>
+        </div>
         
         <div class="logo">
             <img src="imagens/logo.png" alt="Pinic Fighter">
         </div>
         <canvas id="game" width="900" height="400"></canvas>
         
-        <button id="btnSairSala" class="btn-voltar" style="margin-top: 20px;">SAIR DA SALA</button>
+        <div class="controles-jogo">
+            <button id="btnSairSala" class="btn-voltar">SAIR DA SALA</button>
+            <button id="btnExcluirSalaFooter" class="btn-excluir" style="display: none; margin-left: 20px;">
+                🗑️ EXCLUIR SALA
+            </button>
+        </div>
     </div>
 
     <!-- Firebase primeiro -->
@@ -1373,6 +1382,7 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 </body>
 </html>
+
 
 
 
