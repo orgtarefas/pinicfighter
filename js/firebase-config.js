@@ -19,6 +19,8 @@ let meuPlayerId = null;
 let meuPersonagem = null;
 let jogadoresSala = {};
 let meuNome = "";
+let ultimoEnvio = 0; // Controle de rate limiting
+const MIN_TEMPO_ENTRE_ENVIOS = 100; // 100ms entre envios
 
 // ============================================
 // FUNÇÕES PARA O SISTEMA DE SALAS (chamadas pelo HTML)
@@ -139,7 +141,10 @@ window.registrarJogadorSala = function(nomeSala, playerNum, personagem, callback
             entrada: Date.now(),
             vida: 100,
             vivo: true,
-            ultimaAtualizacao: Date.now()
+            ultimaAtualizacao: Date.now(),
+            x: 150 + (parseInt(playerNum) - 1) * 200, // Posição inicial
+            y: 320, // CHAO
+            dir: parseInt(playerNum) <= 2 ? 1 : -1
         };
         
         db.ref(`salas/${nomeSala}/jogadores/${playerId}`).set(dadosJogador).then(() => {
@@ -220,12 +225,19 @@ window.inicializarJogoSala = function(nomeSala, playerNum, personagem) {
 // ============================================
 
 function configurarListenersSala(nomeSala) {
-    // Escutar mudanças nos jogadores da sala
+    // Escutar mudanças nos jogadores da sala - COM THROTTLE
+    let ultimaAtualizacao = 0;
+    const MIN_TEMPO_ENTRE_ATUALIZACOES = 500; // 500ms
+    
     db.ref(`salas/${nomeSala}/jogadores`).on('value', snapshot => {
+        const agora = Date.now();
+        if (agora - ultimaAtualizacao < MIN_TEMPO_ENTRE_ATUALIZACOES) {
+            return; // Ignorar se for muito rápido
+        }
+        ultimaAtualizacao = agora;
+        
         const jogadores = snapshot.val() || {};
         jogadoresSala = jogadores;
-        
-        console.log('Jogadores na sala:', Object.keys(jogadores));
         
         // Atualizar UI com lista de jogadores
         if (typeof window.atualizarJogadoresSala === 'function') {
@@ -270,7 +282,7 @@ function configurarListenersSala(nomeSala) {
                 }
             }
         }
-    }, 5000); // Verificar a cada 5 segundos
+    }, 10000); // Verificar a cada 10 segundos (reduzido de 5 para 10)
 }
 
 // ============================================
@@ -284,9 +296,15 @@ function sincronizarJogadoresComGame(jogadores) {
     }
 }
 
-// Enviar dados do jogador para a sala
+// Enviar dados do jogador para a sala - COM RATE LIMITING
 function enviarDadosJogadorSala(dados) {
     if (!salaAtual || !meuPlayerId) return;
+    
+    const agora = Date.now();
+    if (agora - ultimoEnvio < MIN_TEMPO_ENTRE_ENVIOS) {
+        return; // Rate limiting
+    }
+    ultimoEnvio = agora;
     
     const dadosAtualizados = {
         ...dados,
