@@ -39,18 +39,10 @@ class PersonagemBase {
         this.velDeslize = 10;
     }
 
-    mover(keys) {
+    mover() {
         if (!this.vivo || jogoTerminou) return;
         
-        // DEBUG: Verificar teclas pressionadas
-         console.log('Teclas:', keys);
-         console.log('Controles:', this.ctrl);
-         console.log('Tecla A:', keys['a'] || keys['KeyA']);
-         console.log('Tecla D:', keys['d'] || keys['KeyD']);
-         console.log('Tecla S:', keys['s'] || keys['KeyS']);
-         console.log('Tecla W:', keys['w'] || keys['KeyW']);
-        
-        // NOVO: Se estiver deslizando, movimento especial
+        // Se estiver deslizando
         if (this.deslizando) {
             this.x += this.dir * this.velDeslize;
             this.tempoDeslize--;
@@ -61,13 +53,12 @@ class PersonagemBase {
             return;
         }
         
-        // NOVO: Sistema de abaixar
-        const teclaBaixo = this.ctrl.baixo; // Agora usa a propriedade baixo do controle
-        if (keys[teclaBaixo] && !this.pulando && !this.chutando && !this.atacando) {
+        // Sistema de abaixar
+        if (keys[this.ctrl.baixo] && !this.pulando && !this.chutando && !this.atacando) {
             this.abaixado = true;
-            // NOVO: Chutar enquanto abaixado = deslizar
-            const teclaChute = this.ctrl.chute;
-            if (keys[teclaChute] && !this.deslizando) {
+            
+            // Chutar enquanto abaixado = deslizar
+            if (keys[this.ctrl.chute] && !this.deslizando) {
                 this.deslizar();
                 return;
             }
@@ -75,7 +66,7 @@ class PersonagemBase {
             this.abaixado = false;
         }
         
-        // Movimento normal (só se não estiver abaixado)
+        // Movimento normal
         if (!this.abaixado) {
             if (keys[this.ctrl.esq]) { 
                 this.x -= this.vel; 
@@ -98,6 +89,94 @@ class PersonagemBase {
         }
         
         this.x = Math.max(LIM_ESQ, Math.min(LIM_DIR, this.x));
+    }
+    
+    pular() {
+        if (this.abaixado || this.deslizando) return;
+        
+        if (keys[this.ctrl.pulo] && !this.pulando && this.vivo && !this.chutando && !jogoTerminou) {
+            this.vy = -18;
+            this.pulando = true;
+            this.descendoRapido = false;
+        }
+        
+        if (this.pulando && keys[this.ctrl.baixo] && this.cdPoder <= 0) {
+            this.descendoRapido = true;
+            this.vy = 20;
+            this.cargaPoder++;
+            
+            if (this.cargaPoder % 5 === 0) {
+                this.criarParticulas(this.x, this.y, 3);
+            }
+        } else {
+            this.descendoRapido = false;
+            this.cargaPoder = 0;
+        }
+    }
+    
+    atacar(inimigo) {
+        if (!this.vivo || !inimigo.vivo || jogoTerminou) return;
+
+        if (keys[this.ctrl.atk] && !this.atacando && !this.chutando && !this.deslizando) {
+            this.atacando = true;
+            this.tempoAtaque = 8;
+            this.olhosAbertos = false;
+
+            const hit = {
+                x: this.x + this.dir * 50,
+                y: this.y - 40,
+                w: 45,
+                h: 35
+            };
+            
+            if (this.abaixado && !this.pulando) {
+                hit.y = this.y - 20;
+                hit.h = 25;
+            }
+
+            if (colisao(hit, inimigo.hitbox())) {
+                inimigo.receberDano(8);
+            }
+        }
+
+        if (keys[this.ctrl.chute] && !this.chutando && !this.atacando && !this.deslizando && !this.abaixado) {
+            this.chutando = true;
+            this.tempoChute = 12;
+            
+            this.sapatoX = this.x + this.dir * 20;
+            this.sapatoY = this.y + 10;
+
+            const hit = {
+                x: this.x + this.dir * 60,
+                y: this.y + 5,
+                w: 50,
+                h: 30
+            };
+
+            if (colisao(hit, inimigo.hitbox())) {
+                inimigo.receberDano(15);
+            }
+        }
+
+        if (this.chutando) {
+            this.tempoChute--;
+            if (this.tempoChute > 8) {
+                this.sapatoX += this.dir * 8;
+                this.sapatoY -= 2;
+            } else if (this.tempoChute > 4) {
+                this.sapatoY += 1;
+            } else if (this.tempoChute > 0) {
+                this.sapatoX -= this.dir * 6;
+                this.sapatoY += 3;
+            } else {
+                this.chutando = false;
+            }
+        }
+        
+        if (this.atacando && --this.tempoAtaque <= 0) {
+            this.atacando = false;
+            this.olhosAbertos = true;
+        }
     }
     
     // NOVO: Método para deslizar
@@ -465,6 +544,43 @@ class PersonagemBase {
     
 }
 
+// Controles FIXOS para 4 jogadores
+const CONTROLES_FIXOS = {
+    'p1': {
+        esq: 'KeyA',
+        dir: 'KeyD',
+        pulo: 'KeyW',
+        atk: 'KeyF',
+        chute: 'KeyC',
+        baixo: 'KeyS'
+    },
+    'p2': {
+        esq: 'ArrowLeft',
+        dir: 'ArrowRight',
+        pulo: 'ArrowUp',
+        atk: 'Enter',
+        chute: 'Period',
+        baixo: 'ArrowDown'
+    },
+    'p3': {
+        esq: 'KeyJ',
+        dir: 'KeyL',
+        pulo: 'KeyI',
+        atk: 'KeyH',
+        chute: 'KeyN',
+        baixo: 'KeyK'
+    },
+    'p4': {
+        esq: 'Numpad4',
+        dir: 'Numpad6',
+        pulo: 'Numpad8',
+        atk: 'Numpad0',
+        chute: 'NumpadDecimal',
+        baixo: 'Numpad5'
+    }
+};
+
+
 // Mapeamento de cores para os players
 const CORES_PLAYERS = {
     'p1': { corSapato: "cyan", cor: "#8B7355" },
@@ -473,19 +589,29 @@ const CORES_PLAYERS = {
     'p4': { corSapato: "lime", cor: "#8B7355" }
 };
 
-// Atualizar a função criarPersonagem para usar cores baseadas no player:
-function criarPersonagem(tipo, x, controles, direcao, id) {
+// Fábrica de personagens SIMPLIFICADA
+function criarPersonagem(tipo, x, playerId) {
     // Determinar cores baseadas no ID do player
-    const cores = CORES_PLAYERS[id] || CORES_PLAYERS['p1'];
+    const cores = {
+        'p1': { cor: "#8B7355", corSapato: "cyan" },
+        'p2': { cor: "#8B7355", corSapato: "red" },
+        'p3': { cor: "#8B7355", corSapato: "yellow" },
+        'p4': { cor: "#8B7355", corSapato: "lime" }
+    };
+    
+    const playerNum = playerId.charAt(1);
+    const direcao = parseInt(playerNum) <= 2 ? 1 : -1;
+    const controles = CONTROLES_FIXOS[playerId] || CONTROLES_FIXOS['p1'];
+    const cor = cores[playerId] || cores['p1'];
     
     switch(tipo) {
         case "ratazana":
-            return new Ratazana(x, "#666666", cores.corSapato, controles, direcao, id);
+            return new Ratazana(x, "#666666", "brown", controles, direcao, playerId);
         case "peidovélio":
-            return new Peidovélio(x, "#D3D3D3", cores.corSapato, controles, direcao, id);
+            return new Peidovélio(x, "#D3D3D3", "#808080", controles, direcao, playerId);
         case "cocozin":
         default:
-            return new Cocozin(x, cores.cor, cores.corSapato, controles, direcao, id);
+            return new Cocozin(x, cor.cor, cor.corSapato, controles, direcao, playerId);
     }
 }
 
@@ -2360,18 +2486,7 @@ class Peidovélio extends PersonagemBase {
     }
 }
 
-// Fábrica de personagens
-function criarPersonagem(tipo, x, controles, direcao, id) {
-    switch(tipo) {
-        case "ratazana":
-            return new Ratazana(x, "#666666", "brown", controles, direcao, id);
-        case "peidovélio":
-            return new Peidovélio(x, "#D3D3D3", "#808080", controles, direcao, id);
-        case "cocozin":
-        default:
-            return new Cocozin(x, "#8B7355", id === "p1" ? "cyan" : "red", controles, direcao, id);
-    }
-}
+
 
 
 
