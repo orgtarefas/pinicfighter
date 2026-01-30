@@ -567,6 +567,7 @@
     </div>
     
     <!-- Tela 6: Jogo Principal -->
+    <!-- Tela 6: Jogo Principal -->
     <div id="jogoPrincipal" class="tela-container">
         <div class="info-sala" id="infoSalaJogo"></div>
         <div class="jogadores-sala" id="jogadoresSala"></div>
@@ -590,7 +591,8 @@
     <script src="js/fighter.js"></script>
     <script src="js/ui.js"></script>
     <script src="js/game.js"></script>
-    
+    <script src="js/cleanup.js"></script> <!-- ADICIONADO -->
+
     <!-- Sistema de Salas -->
     <script>
     document.addEventListener('DOMContentLoaded', function() {
@@ -603,6 +605,8 @@
             selecaoPersonagem: document.getElementById('telaSelecaoPersonagem'),
             jogo: document.getElementById('jogoPrincipal')
         };
+
+        let heartbeatInterval = null; 
         
         // Elementos de input/mensagem
         const nomeSalaInput = document.getElementById('nomeSala');
@@ -627,6 +631,57 @@
         let personagemSelecionado = null;
         let salaAtual = '';
         let jogadoresNaSala = {};
+
+        // === Função do heartbeat ===
+        function iniciarHeartbeat() {
+            console.log('💓 Iniciando sistema de heartbeat...');
+            
+            // Parar qualquer heartbeat anterior
+            if (heartbeatInterval) {
+                clearInterval(heartbeatInterval);
+                heartbeatInterval = null;
+            }
+            
+            // Verificar se temos os dados necessários
+            if (!salaAtual || !playerSelecionado) {
+                console.log('❌ Heartbeat não iniciado: falta dados da sala');
+                return;
+            }
+            
+            console.log(`💓 Heartbeat ativo para: ${salaAtual} - Player ${playerSelecionado}`);
+            
+            // Criar intervalo que roda a cada 30 segundos
+            heartbeatInterval = setInterval(() => {
+                const timestamp = Date.now();
+                console.log(`💓 [${new Date(timestamp).toLocaleTimeString()}] Enviando sinal...`);
+                
+                // Enviar para Firebase (se disponível)
+                if (typeof window.atualizarHeartbeat === 'function') {
+                    window.atualizarHeartbeat(salaAtual, playerSelecionado, timestamp);
+                }
+                
+                // Atualizar localStorage também
+                try {
+                    const sessao = JSON.parse(localStorage.getItem('pinic_ultima_sessao') || '{}');
+                    if (sessao.sala === salaAtual && sessao.player === playerSelecionado) {
+                        sessao.lastHeartbeat = timestamp;
+                        localStorage.setItem('pinic_ultima_sessao', JSON.stringify(sessao));
+                    }
+                } catch (e) {
+                    // Ignorar erro
+                }
+                
+            }, 30000); // 30 segundos
+            
+            // Enviar primeiro heartbeat imediatamente
+            setTimeout(() => {
+                const timestamp = Date.now();
+                if (typeof window.atualizarHeartbeat === 'function') {
+                    window.atualizarHeartbeat(salaAtual, playerSelecionado, timestamp);
+                }
+                console.log('💓 Primeiro heartbeat enviado');
+            }, 500);
+        }
         
         // Navegação entre telas
         function mostrarTela(tela) {
@@ -723,7 +778,7 @@
                         salaDiv.innerHTML = `
                             <div>
                                 <div class="sala-nome">${sala.nome}</div>
-                                <div class="sala-info">Jogadores: ${sala.jogadores || 0}/4 • Criada por: ${sala.criador || 'Desconhecido'}</div>
+                                <div class="sala-info">Jogadores: ${sala.jogadores || 0}/4</div>
                             </div>
                             <div class="sala-info">→</div>
                         `;
@@ -853,53 +908,152 @@
         document.getElementById('btnConfirmarPersonagem').addEventListener('click', entrarNaSala);
         
         function entrarNaSala() {
-            if (!playerSelecionado || !personagemSelecionado) {
+            console.log('🎮 Tentando entrar na sala:', {
+                sala: nomeSalaSelecionada,
+                player: playerSelecionado,
+                personagem: personagemSelecionado
+            });
+            
+            // 1. VALIDAÇÕES INICIAIS
+            if (!playerSelecionado) {
+                mensagemPersonagem.textContent = 'Selecione um player primeiro!';
+                mensagemPersonagem.style.color = '#ff0';
+                return;
+            }
+            
+            if (!personagemSelecionado) {
                 mensagemPersonagem.textContent = 'Selecione um personagem!';
                 mensagemPersonagem.style.color = '#ff0';
                 return;
             }
             
+            if (!nomeSalaSelecionada) {
+                mensagemPersonagem.textContent = 'Nenhuma sala selecionada!';
+                mensagemPersonagem.style.color = '#ff0';
+                return;
+            }
+            
+            // 2. MOSTRAR LOADING
             loadingEntrada.style.display = 'block';
             mensagemPersonagem.textContent = '';
+            document.getElementById('btnConfirmarPersonagem').disabled = true;
             
-            // Registrar jogador na sala via Firebase
+            // 3. REGISTRAR NO FIREBASE (ou fallback)
             if (typeof window.registrarJogadorSala === 'function') {
-                window.registrarJogadorSala(nomeSalaSelecionada, playerSelecionado, personagemSelecionado, (sucesso, mensagem) => {
-                    loadingEntrada.style.display = 'none';
+                window.registrarJogadorSala(
+                    nomeSalaSelecionada, 
+                    playerSelecionado, 
+                    personagemSelecionado, 
                     
-                    if (sucesso) {
-                        salaAtual = nomeSalaSelecionada;
+                    function(sucesso, mensagem) {
+                        // Esconder loading
+                        loadingEntrada.style.display = 'none';
+                        document.getElementById('btnConfirmarPersonagem').disabled = false;
                         
-                        // Inicializar jogo
-                        if (typeof window.inicializarJogoSala === 'function') {
-                            window.inicializarJogoSala(nomeSalaSelecionada, playerSelecionado, personagemSelecionado);
+                        if (sucesso) {
+                            console.log('✅ Entrou na sala com sucesso');
+                            
+                            // Atualizar estado local
+                            salaAtual = nomeSalaSelecionada;
+                            
+                            // SALVAR NO LOCALSTORAGE (para recuperação)
+                            try {
+                                localStorage.setItem('pinic_ultima_sessao', JSON.stringify({
+                                    sala: salaAtual,
+                                    player: playerSelecionado,
+                                    personagem: personagemSelecionado,
+                                    timestamp: Date.now()
+                                }));
+                            } catch (e) {
+                                console.log('⚠️ Não foi possível salvar no localStorage');
+                            }
+                            
+                            // Atualizar informações na tela do jogo
+                            infoSalaJogo.innerHTML = `
+                                <strong>🎮 SALA:</strong> ${salaAtual}<br>
+                                <strong>👤 PLAYER:</strong> ${playerSelecionado}<br>
+                                <strong>⚔️ PERSONAGEM:</strong> ${personagemSelecionado}
+                            `;
+                            
+                            // Iniciar sistema de heartbeat
+                            try {
+                                if (typeof iniciarHeartbeat === 'function') {
+                                    iniciarHeartbeat();
+                                } else {
+                                    console.log('⚠️ Função iniciarHeartbeat não encontrada');
+                                }
+                            } catch (error) {
+                                console.error('❌ Erro ao iniciar heartbeat:', error);
+                            }
+                            
+                            // Iniciar o jogo principal
+                            if (typeof window.inicializarJogoSala === 'function') {
+                                window.inicializarJogoSala(
+                                    nomeSalaSelecionada, 
+                                    playerSelecionado, 
+                                    personagemSelecionado
+                                );
+                            } else {
+                                console.log('⚠️ Função inicializarJogoSala não encontrada');
+                                // Fallback: mostrar mensagem
+                                infoSalaJogo.innerHTML += '<br><br><small style="color:#ff0">Modo demonstração ativado</small>';
+                            }
+                            
+                            // Mudar para tela do jogo
+                            mostrarTela(telas.jogo);
+                            
+                            // Scroll para o topo (caso necessário)
+                            window.scrollTo(0, 0);
+                            
+                        } else {
+                            // ERRO: mostrar mensagem
+                            console.error('❌ Falha ao entrar na sala:', mensagem);
+                            mensagemPersonagem.textContent = 'Erro: ' + mensagem;
+                            mensagemPersonagem.style.color = '#f00';
+                            
+                            // Manter na mesma tela para tentar novamente
+                            mostrarTela(telas.selecaoPersonagem);
                         }
-                        
-                        // Atualizar info da sala
-                        infoSalaJogo.innerHTML = `
-                            <strong>Sala:</strong> ${salaAtual}<br>
-                            <strong>Player:</strong> ${playerSelecionado}<br>
-                            <strong>Personagem:</strong> ${personagemSelecionado}
-                        `;
-                        
-                        mostrarTela(telas.jogo);
-                    } else {
-                        mensagemPersonagem.textContent = mensagem;
-                        mensagemPersonagem.style.color = '#f00';
                     }
-                });
+                );
+                
             } else {
-                // Fallback
+                // 4. FALLBACK (modo offline/demonstração)
+                console.log('🔶 Modo demonstração (Firebase não disponível)');
+                
                 setTimeout(() => {
                     loadingEntrada.style.display = 'none';
+                    document.getElementById('btnConfirmarPersonagem').disabled = false;
+                    
                     salaAtual = nomeSalaSelecionada;
                     
+                    // Atualizar informações
+                    infoSalaJogo.innerHTML = `
+                        <strong>🎮 SALA:</strong> ${salaAtual}<br>
+                        <strong>👤 PLAYER:</strong> ${playerSelecionado}<br>
+                        <strong>⚔️ PERSONAGEM:</strong> ${personagemSelecionado}<br>
+                        <br>
+                        <small style="color:#ff0">⚠️ Modo demonstração (sem Firebase)</small>
+                    `;
+                    
+                    // Iniciar heartbeat mesmo no modo demo
+                    if (typeof iniciarHeartbeat === 'function') {
+                        iniciarHeartbeat();
+                    }
+                    
+                    // Tentar iniciar jogo (modo single player)
                     if (typeof window.inicializarJogoSala === 'function') {
                         window.inicializarJogoSala(nomeSalaSelecionada, playerSelecionado, personagemSelecionado);
                     }
                     
                     mostrarTela(telas.jogo);
-                }, 1000);
+                    
+                    // Feedback
+                    setTimeout(() => {
+                        alert('🎮 Modo demonstração ativado!\n\nO sistema de salas multiplayer requer Firebase.\nPara jogar com amigos, configure o Firebase.');
+                    }, 500);
+                    
+                }, 1500);
             }
         }
         
@@ -907,47 +1061,177 @@
         document.getElementById('btnSairSala').addEventListener('click', sairDaSala);
         
         function sairDaSala() {
-            // Remover jogador da sala via Firebase
-            if (typeof window.removerJogadorSala === 'function') {
-                window.removerJogadorSala(salaAtual, playerSelecionado);
+            console.log('🚪 Saindo da sala:', { 
+                sala: salaAtual, 
+                player: playerSelecionado 
+            });
+            
+            // 1. PARAR HEARTBEAT (se estiver rodando)
+            if (heartbeatInterval) {
+                clearInterval(heartbeatInterval);
+                heartbeatInterval = null;
+                console.log('💔 Heartbeat parado');
             }
             
-            // Resetar estado
+            // 2. NOTIFICAR OUTROS JOGADORES (se estiver numa sala)
+            if (salaAtual && playerSelecionado) {
+                // Disparar evento personalizado para o jogo
+                const evento = new CustomEvent('sairSala', {
+                    detail: { 
+                        sala: salaAtual, 
+                        player: playerSelecionado,
+                        timestamp: Date.now()
+                    }
+                });
+                window.dispatchEvent(evento);
+                
+                // Remover jogador da sala via Firebase (se a função existir)
+                if (typeof window.removerJogadorSala === 'function') {
+                    window.removerJogadorSala(salaAtual, playerSelecionado);
+                } else {
+                    console.log('⚠️ Função removerJogadorSala não encontrada');
+                }
+            }
+            
+            // 3. PARAR O JOGO (se estiver rodando)
+            if (typeof window.pararJogo === 'function') {
+                window.pararJogo();
+            }
+            
+            // 4. RESETAR TODAS AS VARIÁVEIS DE ESTADO
+            const salaAntiga = salaAtual; // Guardar para log
+            
             salaAtual = '';
             playerSelecionado = null;
             personagemSelecionado = null;
             nomeSalaSelecionada = '';
+            jogadoresNaSala = {};
             
+            // 5. LIMPAR A TELA
+            infoSalaJogo.innerHTML = '';
+            jogadoresSala.innerHTML = '';
+            
+            // 6. MOSTRAR MENU PRINCIPAL
             mostrarTela(telas.menu);
+            
+            // 7. FEEDBACK VISUAL (opcional)
+            console.log('✅ Saiu da sala:', salaAntiga);
+            
+            // 8. LIMPAR LOCALSTORAGE (se estiver usando)
+            try {
+                localStorage.removeItem('pinic_ultima_sessao');
+            } catch (e) {
+                // Ignorar erro
+            }
         }
         
         // Função para atualizar lista de jogadores na sala (chamada pelo Firebase)
         window.atualizarJogadoresSala = function(jogadores) {
             jogadoresNaSala = jogadores;
             
-            let html = '<strong>Jogadores na Sala:</strong><br>';
+            let html = '<strong>👥 Jogadores na Sala:</strong><br>';
             let count = 0;
             
             for (const [playerId, dados] of Object.entries(jogadores)) {
                 count++;
-                const eu = (playerId === `p${playerSelecionado}`);
+                const eu = (playerSelecionado && playerId === `p${playerSelecionado}`);
+                const icon = dados.personagem === 'cocozin' ? '💩' : 
+                            dados.personagem === 'ratazana' ? '🐀' : 
+                            dados.personagem === 'peidovélio' ? '💨' : '👤';
+                
                 html += `
                     <div class="jogador-item ${eu ? 'eu' : ''}">
-                        <span>${dados.nome || `Player ${playerId.charAt(1)}`}</span>
+                        <span>${icon} ${playerId.toUpperCase()}</span>
                         <span>${dados.personagem || 'Escolhendo...'}</span>
+                        <span>${dados.vida || 100}❤️</span>
                     </div>
                 `;
             }
             
             if (count === 0) {
-                html += 'Nenhum jogador ainda...';
+                html += '⌛ Aguardando jogadores...';
+            } else {
+                html += `<br><small>${count} jogador(es) na sala</small>`;
             }
             
             jogadoresSala.innerHTML = html;
+            
+            // Se não há mais jogadores na sala e estamos sozinhos, voltar ao menu
+            if (count === 1 && playerSelecionado) {
+                const unicoJogador = Object.keys(jogadores)[0];
+                if (unicoJogador !== `p${playerSelecionado}`) {
+                    // Todos saíram, só restou outro jogador
+                    console.log('Todos os outros jogadores saíram');
+                }
+            }
         };
+        
+        // Evento para quando recebermos um sinal de que o jogador foi removido
+        window.addEventListener('jogadorRemovido', function(e) {
+            const { sala, player } = e.detail;
+            
+            if (sala === salaAtual && `p${player}` === `p${playerSelecionado}`) {
+                console.log('Você foi removido da sala');
+                
+                // Resetar estado
+                salaAtual = '';
+                playerSelecionado = null;
+                personagemSelecionado = null;
+                nomeSalaSelecionada = '';
+                jogadoresNaSala = {};
+                
+                // Limpar informações da tela
+                infoSalaJogo.innerHTML = '';
+                jogadoresSala.innerHTML = '';
+                
+                // Mostrar mensagem
+                alert('Você foi removido da sala. Voltando ao menu...');
+                
+                mostrarTela(telas.menu);
+            }
+        });
+        
+        // Configurar evento para quando a página for fechada
+        window.addEventListener('beforeunload', function() {
+            if (salaAtual && playerSelecionado) {
+                // Tentar remover jogador antes de fechar
+                if (typeof window.removerJogadorSala === 'function') {
+                    // Usar sendBeacon para garantir que a requisição seja feita
+                    const dados = JSON.stringify({
+                        sala: salaAtual,
+                        player: playerSelecionado,
+                        timestamp: Date.now()
+                    });
+                    
+                    try {
+                        // Tentar enviar uma última requisição
+                        navigator.sendBeacon(`/api/remover-jogador?dados=${encodeURIComponent(dados)}`);
+                    } catch (e) {
+                        // Fallback: tentar remover via Firebase
+                        window.removerJogadorSala(salaAtual, playerSelecionado);
+                    }
+                }
+            }
+        });
         
         // Iniciar no menu
         mostrarTela(telas.menu);
+        
+        // Verificar se há sessão antiga pendente
+        try {
+            const sessao = localStorage.getItem('pinic_ultima_sessao');
+            if (sessao) {
+                const dados = JSON.parse(sessao);
+                const agora = Date.now();
+                
+                // Se a sessão tem menos de 5 minutos, mostrar alerta
+                if (agora - dados.timestamp < 300000) {
+                    console.log('Sessão recente detectada. Verificando se há jogadores pendentes...');
+                }
+            }
+        } catch (e) {
+            // Ignorar erro
+        }
     });
     </script>
 </body>
