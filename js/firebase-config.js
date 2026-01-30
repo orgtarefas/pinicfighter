@@ -19,7 +19,7 @@ let meuPlayerId = null;
 let meuPersonagem = null;
 
 // ============================================
-// FUNÇÕES SIMPLIFICADAS PARA O SISTEMA DE SALAS
+// FUNÇÕES PARA O SISTEMA DE SALAS
 // ============================================
 
 // Verificar e criar sala
@@ -115,8 +115,11 @@ window.registrarJogadorSala = function(nomeSala, playerNum, personagem, callback
             meuPlayerId = playerId;
             meuPersonagem = personagem;
             
-            // Configurar listener simples para esta sala
-            configurarListenerSalaSimples(nomeSala);
+            // Configurar listener para esta sala
+            configurarListenerSala(nomeSala);
+            
+            // Configurar eventos para quando a página for fechada/atualizada
+            configurarEventosSaida();
             
             callback(true, 'Entrou na sala com sucesso!');
         }).catch(error => {
@@ -125,40 +128,86 @@ window.registrarJogadorSala = function(nomeSala, playerNum, personagem, callback
     });
 };
 
-// Remover jogador da sala
-window.removerJogadorSala = function(nomeSala, playerNum) {
-    const playerId = `p${playerNum}`;
-    
+// ============================================
+// REMOVER JOGADOR AO SAIR/ATUALIZAR
+// ============================================
+
+// Função para remover jogador da sala
+function removerJogadorDaSala() {
     if (!salaAtual || !meuPlayerId) return;
     
-    db.ref(`salas/${nomeSala}/jogadores/${playerId}`).remove().then(() => {
-        console.log('Jogador removido da sala');
-        
-        // Remover listener
-        db.ref(`salas/${nomeSala}/jogadores`).off();
-        
-        // Limpar variáveis
-        salaAtual = null;
-        meuPlayerId = null;
-        meuPersonagem = null;
-    });
-};
-
-// Inicializar jogo na sala
-window.inicializarJogoSala = function(nomeSala, playerNum, personagem) {
-    console.log(`Inicializando jogo na sala: ${nomeSala}, Player: ${playerNum}, Personagem: ${personagem}`);
+    console.log('🗑️ Removendo jogador da sala:', meuPlayerId);
     
-    if (typeof window.inicializarJogoMultiplayer === 'function') {
-        window.inicializarJogoMultiplayer(nomeSala, playerNum, personagem);
+    // Remover jogador do Firebase
+    db.ref(`salas/${salaAtual}/jogadores/${meuPlayerId}`).remove().then(() => {
+        console.log('✅ Jogador removido com sucesso');
+        
+        // Verificar se sala ficou vazia
+        db.ref(`salas/${salaAtual}/jogadores`).once('value').then(snapshot => {
+            const jogadores = snapshot.val() || {};
+            if (Object.keys(jogadores).length === 0) {
+                // Sala vazia - marcar como inativa após 30 segundos
+                setTimeout(() => {
+                    db.ref(`salas/${salaAtual}/status`).set('inativa');
+                    console.log(`🏁 Sala ${salaAtual} marcada como inativa`);
+                }, 30000);
+            }
+        });
+    }).catch(error => {
+        console.error('❌ Erro ao remover jogador:', error);
+    });
+    
+    // Limpar listeners e variáveis
+    db.ref(`salas/${salaAtual}/jogadores`).off();
+    salaAtual = null;
+    meuPlayerId = null;
+    meuPersonagem = null;
+}
+
+// Configurar eventos para quando a página for fechada/atualizada
+function configurarEventosSaida() {
+    // Evento antes de fechar a página
+    window.addEventListener('beforeunload', function(e) {
+        removerJogadorDaSala();
+        
+        // Alguns navegadores exigem returnValue
+        e.preventDefault();
+        e.returnValue = '';
+    });
+    
+    // Evento quando a página está sendo descarregada
+    window.addEventListener('unload', function() {
+        removerJogadorDaSala();
+    });
+    
+    // Evento quando a página está ficando visível/invisível (mudança de aba)
+    document.addEventListener('visibilitychange', function() {
+        if (document.hidden) {
+            // Página não está visível (usuário mudou de aba)
+            // Podemos remover após um tempo se quiser
+            // console.log('Página não está visível');
+        }
+    });
+    
+    // Evento personalizado para sair da sala (botão de sair)
+    window.addEventListener('sairSala', function() {
+        removerJogadorDaSala();
+    });
+}
+
+// Remover jogador da sala (chamado pelo HTML)
+window.removerJogadorSala = function(nomeSala, playerNum) {
+    if (salaAtual === nomeSala && meuPlayerId === `p${playerNum}`) {
+        removerJogadorDaSala();
     }
 };
 
 // ============================================
-// LISTENER SIMPLIFICADO DA SALA
+// LISTENER DA SALA
 // ============================================
 
-function configurarListenerSalaSimples(nomeSala) {
-    // Escutar mudanças nos jogadores da sala - SIMPLES
+function configurarListenerSala(nomeSala) {
+    // Escutar mudanças nos jogadores da sala
     db.ref(`salas/${nomeSala}/jogadores`).on('value', snapshot => {
         const jogadores = snapshot.val() || {};
         
@@ -169,6 +218,15 @@ function configurarListenerSalaSimples(nomeSala) {
     });
 }
 
+// Inicializar jogo na sala
+window.inicializarJogoSala = function(nomeSala, playerNum, personagem) {
+    console.log(`🎮 Inicializando jogo na sala: ${nomeSala}, Player: ${playerNum}, Personagem: ${personagem}`);
+    
+    if (typeof window.inicializarJogoMultiplayer === 'function') {
+        window.inicializarJogoMultiplayer(nomeSala, playerNum, personagem);
+    }
+};
+
 // Exportar funções para game.js
 window.firebaseSala = {
     getSalaAtual: () => salaAtual,
@@ -176,4 +234,4 @@ window.firebaseSala = {
     getMeuPersonagem: () => meuPersonagem
 };
 
-console.log('✓ Sistema de salas multiplayer SIMPLIFICADO carregado!');
+console.log('✅ Sistema de salas com remoção automática carregado!');
