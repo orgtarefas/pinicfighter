@@ -263,7 +263,7 @@ function loopMultiplayer() {
         // Não precisa mais converter
         
         // DEBUG: Verificar teclas
-        // console.log('Keys:', keys);
+        console.log('Keys:', keys);
         
         // Atualizar jogador local
         jogadorLocal.mover(keys);
@@ -558,4 +558,5 @@ function reiniciarJogoMultiplayer() {
 
 console.log('🎮 game.js multiplayer carregado');
 console.log('✅ Aguardando criação/entrada em sala...');
+
 
