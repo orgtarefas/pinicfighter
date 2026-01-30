@@ -1,6 +1,32 @@
 
-// fighter.js - ADICIONE NO TOPO DO ARQUIVO
-// Conectar com o sistema de teclas do utils.js
+// fighter.js - CONEXÃO CORRETA COM UTILS.JS
+
+// Aguardar o carregamento da página
+if (typeof window !== 'undefined') {
+    window.addEventListener('load', function() {
+        console.log('🥊 Fighter.js carregando...');
+        
+        // Verificar se as constantes globais existem
+        if (typeof GRAVIDADE === 'undefined') {
+            console.warn('⚠️ Constantes globais não definidas. Usando valores padrão.');
+            
+            // Definir valores padrão
+            window.GRAVIDADE = 0.8;
+            window.CHAO = 320;
+            window.LIM_ESQ = 40;
+            window.LIM_DIR = 860;
+            window.colisao = function(a, b) {
+                return a.x < b.x + b.w && 
+                       a.x + a.w > b.x && 
+                       a.y < b.y + b.h && 
+                       a.y + a.h > b.y;
+            };
+        }
+        
+        console.log('✅ Fighter.js pronto');
+    });
+}
+
 if (typeof keys === 'undefined' && typeof window.keys !== 'undefined') {
     // Se keys não está definido localmente, mas window.keys existe, usamos ele
     var keys = window.keys;
@@ -2498,6 +2524,7 @@ class Peidovélio extends PersonagemBase {
         this.usandoEspecial = false;
     }
 }
+
 
 
 
