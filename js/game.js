@@ -216,7 +216,7 @@ function iniciarLoopJogoMultiplayer() {
     }
 }
 
-// Loop principal multiplayer - AJUSTADO PARA CORRIGIR CONTROLES
+// Loop principal multiplayer - SIMPLIFICADO
 function loopMultiplayer() {
     if (!jogadorLocal || !salaAtualGame) {
         // Aguarda inicialização
@@ -257,57 +257,24 @@ function loopMultiplayer() {
         console.log('⚡ JOGO TERMINADO! Você venceu!');
     }
     
-    // Se estiver jogando sozinho, não termina o jogo
-    if (totalJogadoresAtivos === 1 && !jogoTerminou) {
-        // Jogando sozinho - pode treinar livremente
-    }
-    
     // Controles funcionam sempre
     if (jogadorLocal.vivo && !jogoTerminou) {
-        // CONVERSÃO DAS TECLAS PARA O SISTEMA ANTIGO
-        const teclasConvertidas = {};
+        // O fighter.js agora lida diretamente com as teclas
+        // Não precisa mais converter
         
-        // Converter teclas do novo formato para o antigo
-        for (const [tecla, valor] of Object.entries(keys)) {
-            if (valor === true) {
-                // Mapear teclas para os valores que o fighter.js espera
-                switch(tecla) {
-                    case 'KeyA': teclasConvertidas['a'] = true; break;
-                    case 'KeyD': teclasConvertidas['d'] = true; break;
-                    case 'KeyW': teclasConvertidas['w'] = true; break;
-                    case 'KeyF': teclasConvertidas['f'] = true; break;
-                    case 'KeyC': teclasConvertidas['c'] = true; break;
-                    case 'KeyS': teclasConvertidas['s'] = true; break;
-                    
-                    case 'ArrowLeft': teclasConvertidas['ArrowLeft'] = true; break;
-                    case 'ArrowRight': teclasConvertidas['ArrowRight'] = true; break;
-                    case 'ArrowUp': teclasConvertidas['ArrowUp'] = true; break;
-                    case 'Enter': teclasConvertidas['Enter'] = true; break;
-                    case 'Period': teclasConvertidas['.'] = true; break;
-                    case 'ArrowDown': teclasConvertidas['ArrowDown'] = true; break;
-                    
-                    case 'KeyJ': teclasConvertidas['j'] = true; break;
-                    case 'KeyL': teclasConvertidas['l'] = true; break;
-                    case 'KeyI': teclasConvertidas['i'] = true; break;
-                    case 'KeyH': teclasConvertidas['h'] = true; break;
-                    case 'KeyN': teclasConvertidas['n'] = true; break;
-                    case 'KeyK': teclasConvertidas['k'] = true; break;
-                    
-                    default: teclasConvertidas[tecla] = true; break;
-                }
-            }
-        }
+        // DEBUG: Verificar teclas
+        // console.log('Keys:', keys);
         
-        // Atualizar jogador local com teclas convertidas
-        jogadorLocal.mover(teclasConvertidas);
-        jogadorLocal.pular(teclasConvertidas);
+        // Atualizar jogador local
+        jogadorLocal.mover(keys);
+        jogadorLocal.pular(keys);
         
         // Atacar todos os outros jogadores vivos
         for (const playerId in jogadores) {
             if (playerId !== meuPlayerIdGame) {
                 const inimigo = jogadores[playerId]?.instancia;
                 if (inimigo && inimigo.vivo) {
-                    jogadorLocal.atacar(teclasConvertidas, inimigo);
+                    jogadorLocal.atacar(keys, inimigo);
                 }
             }
         }
@@ -324,34 +291,6 @@ function loopMultiplayer() {
             }
         }
         
-        // ATUALIZAR ESPECIAIS do jogador local
-        if (typeof jogadorLocal.atualizarEspeciais === 'function') {
-            for (const playerId in jogadores) {
-                if (playerId !== meuPlayerIdGame) {
-                    const inimigo = jogadores[playerId]?.instancia;
-                    if (inimigo && inimigo.vivo) {
-                        jogadorLocal.atualizarEspeciais(inimigo);
-                    }
-                }
-            }
-        }
-        
-        // Atualizar cocôs ativos de todos os inimigos
-        for (const playerId in jogadores) {
-            if (playerId !== meuPlayerIdGame) {
-                const jogador = jogadores[playerId]?.instancia;
-                if (jogador && jogador.vivo) {
-                    jogador.atualizarCocos(jogadorLocal);
-                    jogador.fisica();
-                    
-                    // ATUALIZAR ESPECIAIS dos inimigos
-                    if (typeof jogador.atualizarEspeciais === 'function') {
-                        jogador.atualizarEspeciais(jogadorLocal);
-                    }
-                }
-            }
-        }
-        
         // Enviar dados do jogador local para Firebase
         enviarDadosJogadorMultiplayer();
     }
@@ -361,14 +300,6 @@ function loopMultiplayer() {
         const jogador = jogadores[`p${i}`]?.instancia;
         if (jogador && jogadores[`p${i}`]?.ativo) {
             jogador.desenhar();
-        }
-    }
-    
-    // DESENHAR ESPECIAIS de todos os jogadores ativos
-    for (let i = 1; i <= 4; i++) {
-        const jogador = jogadores[`p${i}`]?.instancia;
-        if (jogador && jogadores[`p${i}`]?.ativo && typeof jogador.desenharEspeciais === 'function') {
-            jogador.desenharEspeciais();
         }
     }
     
@@ -627,3 +558,4 @@ function reiniciarJogoMultiplayer() {
 
 console.log('🎮 game.js multiplayer carregado');
 console.log('✅ Aguardando criação/entrada em sala...');
+
