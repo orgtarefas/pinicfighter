@@ -4,12 +4,269 @@
     <meta charset="UTF-8">
     <title>Pinico Fighter</title>
     <link rel="stylesheet" href="css/style.css">
+    <style>
+        /* Estilos para a seleção */
+        .tela-selecao {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #111, #333);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        
+        .selecao-titulo {
+            font-size: 48px;
+            color: #0f0;
+            text-shadow: 0 0 10px #0f0;
+            margin-bottom: 30px;
+            font-family: 'Arial Black', sans-serif;
+            text-transform: uppercase;
+        }
+        
+        .selecao-subtitulo {
+            font-size: 24px;
+            color: white;
+            margin-bottom: 50px;
+        }
+        
+        .selecao-players {
+            display: flex;
+            gap: 100px;
+            margin-bottom: 50px;
+        }
+        
+        .player-opcao {
+            text-align: center;
+            cursor: pointer;
+            transition: transform 0.3s;
+            padding: 20px;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.1);
+        }
+        
+        .player-opcao:hover {
+            transform: scale(1.1);
+            background: rgba(0, 255, 0, 0.2);
+        }
+        
+        .player-opcao.selecionado {
+            background: rgba(0, 255, 0, 0.3);
+            box-shadow: 0 0 20px #0f0;
+        }
+        
+        .player-numero {
+            font-size: 32px;
+            color: #0f0;
+            margin-bottom: 10px;
+        }
+        
+        .player-controles {
+            color: #ccc;
+            font-size: 14px;
+            margin-top: 10px;
+        }
+        
+        /* Tela de seleção de personagem */
+        .tela-personagens {
+            display: none;
+        }
+        
+        .personagens-titulo {
+            font-size: 36px;
+            color: #0f0;
+            margin-bottom: 30px;
+        }
+        
+        .personagens-lista {
+            display: flex;
+            gap: 40px;
+            margin-bottom: 40px;
+        }
+        
+        .personagem-opcao {
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            padding: 20px;
+            border-radius: 15px;
+            background: rgba(255, 255, 255, 0.1);
+            width: 200px;
+        }
+        
+        .personagem-opcao:hover {
+            transform: translateY(-10px);
+            background: rgba(0, 255, 0, 0.2);
+        }
+        
+        .personagem-opcao.selecionado {
+            background: rgba(0, 255, 0, 0.3);
+            box-shadow: 0 0 30px #0f0;
+        }
+        
+        .personagem-icone {
+            font-size: 80px;
+            margin-bottom: 15px;
+            height: 120px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .personagem-nome {
+            font-size: 24px;
+            color: white;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+        }
+        
+        .personagem-desc {
+            color: #ccc;
+            font-size: 14px;
+            margin-bottom: 10px;
+            min-height: 60px;
+        }
+        
+        .personagem-habilidade {
+            color: #ff0;
+            font-size: 12px;
+            font-style: italic;
+        }
+        
+        .btn-confirmar {
+            background: #0f0;
+            color: black;
+            border: none;
+            padding: 15px 40px;
+            font-size: 20px;
+            font-weight: bold;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-transform: uppercase;
+            margin-top: 20px;
+        }
+        
+        .btn-confirmar:hover {
+            background: #0c0;
+            transform: scale(1.1);
+            box-shadow: 0 0 20px #0f0;
+        }
+        
+        .btn-confirmar:disabled {
+            background: #666;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .aguardando {
+            color: #ff0;
+            font-size: 20px;
+            margin-top: 30px;
+            text-align: center;
+        }
+        
+        .info-jogador {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: #0f0;
+            font-size: 18px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px 20px;
+            border-radius: 10px;
+        }
+    </style>
 </head>
 <body>
-    <div class="logo">
-        <img src="imagens/logo.png" alt="Pinico Fighter Logo">
+    <!-- Tela de seleção de player -->
+    <div id="telaSelecao" class="tela-selecao">
+        <div class="selecao-titulo">PINICO FIGHTER</div>
+        <div class="selecao-subtitulo">ESCOLHA SEU PLAYER</div>
+        
+        <div class="selecao-players">
+            <div class="player-opcao" data-player="1">
+                <div class="player-numero">PLAYER 1</div>
+                <div class="personagem-icone">👤</div>
+                <div class="player-controles">
+                    MOVER: A/D<br>
+                    PULAR: W<br>
+                    SOCAR: F<br>
+                    CHUTAR: C
+                </div>
+            </div>
+            
+            <div class="player-opcao" data-player="2">
+                <div class="player-numero">PLAYER 2</div>
+                <div class="personagem-icone">👤</div>
+                <div class="player-controles">
+                    MOVER: ←/→<br>
+                    PULAR: ↑<br>
+                    SOCAR: Enter<br>
+                    CHUTAR: .
+                </div>
+            </div>
+        </div>
+        
+        <button id="btnContinuar" class="btn-confirmar">CONTINUAR</button>
     </div>
-    <canvas id="game" width="900" height="400"></canvas>
+    
+    <!-- Tela de seleção de personagem -->
+    <div id="telaPersonagens" class="tela-selecao tela-personagens">
+        <div class="info-jogador" id="infoJogador"></div>
+        <div class="selecao-titulo">ESCOLHA SEU PERSONAGEM</div>
+        
+        <div class="personagens-lista">
+            <div class="personagem-opcao" data-personagem="cocozin">
+                <div class="personagem-icone">💩</div>
+                <div class="personagem-nome">Cocozin</div>
+                <div class="personagem-desc">
+                    O clássico lutador de cocô!<br>
+                    Equilibrado em ataque e defesa.
+                </div>
+                <div class="personagem-habilidade">PODER: Bomba de Cocô</div>
+            </div>
+            
+            <div class="personagem-opcao" data-personagem="ratazana">
+                <div class="personagem-icone">🐀</div>
+                <div class="personagem-nome">Ratazana</div>
+                <div class="personagem-desc">
+                    Rato boxeador veloz!<br>
+                    Socos rápidos e poderosos.
+                </div>
+                <div class="personagem-habilidade">ESPECIAL: Soco Potente</div>
+            </div>
+            
+            <div class="personagem-opcao" data-personagem="peidovélio">
+                <div class="personagem-icone">💨</div>
+                <div class="personagem-nome">Peidovélio</div>
+                <div class="personagem-desc">
+                    Ser de fumaça tóxico!<br>
+                    Ataques com efeito venenoso.
+                </div>
+                <div class="personagem-habilidade">ESPECIAL: Veneno Contínuo</div>
+            </div>
+        </div>
+        
+        <button id="btnConfirmarPersonagem" class="btn-confirmar" disabled>CONFIRMAR ESCOLHA</button>
+        <div id="aguardandoOp" class="aguardando" style="display: none;">
+            Aguardando outro jogador...
+        </div>
+    </div>
+    
+    <!-- Jogo principal (inicialmente escondido) -->
+    <div id="jogoPrincipal" style="display: none;">
+        <div class="logo">
+            <img src="imagens/logo.png" alt="Pinico Fighter Logo">
+        </div>
+        <canvas id="game" width="900" height="400"></canvas>
+    </div>
 
     <!-- Firebase -->
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -22,5 +279,72 @@
     <script src="js/fighter.js"></script>
     <script src="js/ui.js"></script>
     <script src="js/game.js"></script>
+    
+    <script>
+    // Sistema de seleção visual
+    document.addEventListener('DOMContentLoaded', function() {
+        const telaSelecao = document.getElementById('telaSelecao');
+        const telaPersonagens = document.getElementById('telaPersonagens');
+        const jogoPrincipal = document.getElementById('jogoPrincipal');
+        const btnContinuar = document.getElementById('btnContinuar');
+        const btnConfirmarPersonagem = document.getElementById('btnConfirmarPersonagem');
+        const infoJogador = document.getElementById('infoJogador');
+        const aguardandoOp = document.getElementById('aguardandoOp');
+        
+        let playerSelecionado = null;
+        let personagemSelecionado = null;
+        
+        // Seleção de Player
+        document.querySelectorAll('.player-opcao').forEach(opcao => {
+            opcao.addEventListener('click', function() {
+                document.querySelectorAll('.player-opcao').forEach(p => {
+                    p.classList.remove('selecionado');
+                });
+                this.classList.add('selecionado');
+                playerSelecionado = this.dataset.player;
+                btnContinuar.disabled = false;
+            });
+        });
+        
+        // Botão Continuar (Player -> Personagem)
+        btnContinuar.addEventListener('click', function() {
+            if (!playerSelecionado) return;
+            
+            telaSelecao.style.display = 'none';
+            telaPersonagens.style.display = 'flex';
+            infoJogador.textContent = `PLAYER ${playerSelecionado}`;
+        });
+        
+        // Seleção de Personagem
+        document.querySelectorAll('.personagem-opcao').forEach(opcao => {
+            opcao.addEventListener('click', function() {
+                document.querySelectorAll('.personagem-opcao').forEach(p => {
+                    p.classList.remove('selecionado');
+                });
+                this.classList.add('selecionado');
+                personagemSelecionado = this.dataset.personagem;
+                btnConfirmarPersonagem.disabled = false;
+            });
+        });
+        
+        // Botão Confirmar Personagem
+        btnConfirmarPersonagem.addEventListener('click', function() {
+            if (!playerSelecionado || !personagemSelecionado) return;
+            
+            // Esconde botão e mostra "Aguardando..."
+            btnConfirmarPersonagem.style.display = 'none';
+            aguardandoOp.style.display = 'block';
+            
+            // Inicializa o jogo com as escolhas
+            window.iniciarJogoComSelecao(playerSelecionado, personagemSelecionado);
+        });
+        
+        // Função global para ser chamada pelo firebase-config.js
+        window.mostrarJogoPrincipal = function() {
+            telaPersonagens.style.display = 'none';
+            jogoPrincipal.style.display = 'flex';
+        };
+    });
+    </script>
 </body>
 </html>
