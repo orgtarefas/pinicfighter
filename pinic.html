@@ -2,392 +2,9 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pinic Fighter</title>
     <link rel="stylesheet" href="css/style.css">
-    <style>
-        /* Estilos gerais para todas as telas */
-        .tela-container {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(135deg, #111, #333);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            z-index: 1000;
-        }
-        
-        .logo-selecao {
-            max-width: 300px;
-            margin-bottom: 30px;
-        }
-        
-        .titulo-tela {
-            font-size: 36px;
-            color: #0f0;
-            text-shadow: 0 0 10px #0f0;
-            margin-bottom: 30px;
-            font-family: 'Arial Black', sans-serif;
-            text-transform: uppercase;
-        }
-        
-        .subtitulo-tela {
-            font-size: 18px;
-            color: white;
-            margin-bottom: 40px;
-            text-align: center;
-            max-width: 600px;
-        }
-        
-        /* Tela inicial (menu) */
-        .menu-opcoes {
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-            width: 300px;
-        }
-        
-        .btn-menu {
-            background: #0f0;
-            color: black;
-            border: none;
-            padding: 15px 30px;
-            font-size: 18px;
-            font-weight: bold;
-            border-radius: 50px;
-            cursor: pointer;
-            transition: all 0.3s;
-            text-transform: uppercase;
-            text-align: center;
-        }
-        
-        .btn-menu:hover {
-            background: #0c0;
-            transform: scale(1.05);
-            box-shadow: 0 0 20px #0f0;
-        }
-        
-        /* Tela de criar sala */
-        .form-sala {
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-            width: 400px;
-            align-items: center;
-        }
-        
-        .input-sala {
-            width: 100%;
-            padding: 15px;
-            font-size: 18px;
-            border: 2px solid #0f0;
-            background: rgba(255, 255, 255, 0.1);
-            color: white;
-            border-radius: 10px;
-            text-align: center;
-        }
-        
-        .input-sala::placeholder {
-            color: #888;
-        }
-        
-        .btn-voltar {
-            background: transparent;
-            color: #0f0;
-            border: 2px solid #0f0;
-            padding: 10px 20px;
-            font-size: 16px;
-            border-radius: 50px;
-            cursor: pointer;
-            transition: all 0.3s;
-            margin-top: 20px;
-        }
-        
-        .btn-voltar:hover {
-            background: rgba(0, 255, 0, 0.1);
-        }
-        
-        /* Tela de listar salas */
-        .lista-salas {
-            width: 600px;
-            max-height: 400px;
-            overflow-y: auto;
-            background: rgba(0, 0, 0, 0.5);
-            border-radius: 10px;
-            padding: 20px;
-            margin-bottom: 30px;
-        }
-        
-        .sala-item {
-            background: rgba(255, 255, 255, 0.1);
-            padding: 15px;
-            margin-bottom: 10px;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: all 0.3s;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        
-        .sala-item:hover {
-            background: rgba(0, 255, 0, 0.2);
-            transform: translateX(5px);
-        }
-        
-        .sala-nome {
-            font-size: 20px;
-            color: white;
-            font-weight: bold;
-        }
-        
-        .sala-info {
-            color: #0f0;
-            font-size: 14px;
-        }
-        
-        /* Tela de seleção de player */
-        .selecao-players {
-            display: flex;
-            gap: 50px;
-            margin-bottom: 40px;
-        }
-        
-        .player-opcao {
-            text-align: center;
-            cursor: pointer;
-            transition: transform 0.3s;
-            padding: 30px;
-            border-radius: 15px;
-            background: rgba(255, 255, 255, 0.1);
-            width: 200px;
-        }
-        
-        .player-opcao:hover {
-            transform: scale(1.1);
-            background: rgba(0, 255, 0, 0.2);
-        }
-        
-        .player-opcao.selecionado {
-            background: rgba(0, 255, 0, 0.3);
-            box-shadow: 0 0 30px #0f0;
-        }
-        
-        .player-numero {
-            font-size: 28px;
-            color: #0f0;
-            margin-bottom: 15px;
-        }
-        
-        .player-avatar {
-            font-size: 60px;
-            margin-bottom: 15px;
-            height: 80px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        
-        .player-controles {
-            color: #ccc;
-            font-size: 14px;
-            margin-top: 10px;
-        }
-        
-        /* Tela de seleção de personagem */
-        .personagens-lista {
-            display: flex;
-            gap: 30px;
-            margin-bottom: 40px;
-        }
-        
-        .personagem-opcao {
-            text-align: center;
-            cursor: pointer;
-            transition: all 0.3s;
-            padding: 20px;
-            border-radius: 15px;
-            background: rgba(255, 255, 255, 0.1);
-            width: 280px; /* Aumentado para caber especiais */
-            min-height: 380px; /* Aumentado para caber especiais */
-        }
-        
-        .personagem-opcao:hover {
-            transform: translateY(-10px);
-            background: rgba(0, 255, 0, 0.2);
-        }
-        
-        .personagem-opcao.selecionado {
-            background: rgba(0, 255, 0, 0.3);
-            box-shadow: 0 0 30px #0f0;
-        }
-        
-        .personagem-icone {
-            font-size: 70px;
-            margin-bottom: 15px;
-            height: 100px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        
-        .personagem-nome {
-            font-size: 22px;
-            color: white;
-            margin-bottom: 10px;
-            text-transform: uppercase;
-        }
-        
-        .personagem-desc {
-            color: #ccc;
-            font-size: 14px;
-            margin-bottom: 15px;
-            min-height: 60px;
-        }
-        
-        .personagem-habilidade {
-            color: #ff0;
-            font-size: 14px;
-            font-weight: bold;
-            margin-bottom: 10px;
-        }
-        
-        /* Seção de especiais dos personagens */
-        .personagem-especiais {
-            margin-top: 15px;
-            padding-top: 15px;
-            border-top: 1px solid rgba(255, 255, 255, 0.2);
-            text-align: left;
-        }
-        
-        .especial-item {
-            margin-bottom: 10px;
-            padding: 5px;
-            background: rgba(0, 0, 0, 0.3);
-            border-radius: 5px;
-        }
-        
-        .especial-nome {
-            display: block;
-            color: #0ff;
-            font-size: 12px;
-            font-weight: bold;
-            margin-bottom: 3px;
-        }
-        
-        .especial-comando {
-            display: block;
-            color: #ff0;
-            font-size: 11px;
-            font-family: 'Courier New', monospace;
-        }
-        
-        /* Botões */
-        .btn-confirmar {
-            background: #0f0;
-            color: black;
-            border: none;
-            padding: 15px 40px;
-            font-size: 20px;
-            font-weight: bold;
-            border-radius: 50px;
-            cursor: pointer;
-            transition: all 0.3s;
-            text-transform: uppercase;
-        }
-        
-        .btn-confirmar:hover {
-            background: #0c0;
-            transform: scale(1.1);
-            box-shadow: 0 0 20px #0f0;
-        }
-        
-        .btn-confirmar:disabled {
-            background: #666;
-            cursor: not-allowed;
-            transform: none;
-            box-shadow: none;
-        }
-        
-        /* Info da sala durante o jogo */
-        .info-sala {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            color: #0f0;
-            font-size: 16px;
-            background: rgba(0, 0, 0, 0.7);
-            padding: 10px 20px;
-            border-radius: 10px;
-            z-index: 100;
-        }
-        
-        /* Jogadores na sala */
-        .jogadores-sala {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            color: white;
-            font-size: 16px;
-            background: rgba(0, 0, 0, 0.7);
-            padding: 10px 20px;
-            border-radius: 10px;
-            z-index: 100;
-            max-width: 300px;
-        }
-        
-        .jogador-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 5px;
-            padding: 5px;
-            border-radius: 5px;
-        }
-        
-        .jogador-item.eu {
-            background: rgba(0, 255, 0, 0.2);
-        }
-        
-        /* Jogo principal */
-        #jogoPrincipal {
-            display: none;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            width: 100%;
-            height: 100%;
-        }
-        
-        /* Mensagens */
-        .mensagem {
-            color: #ff0;
-            font-size: 18px;
-            margin-top: 20px;
-            text-align: center;
-            min-height: 30px;
-        }
-        
-        /* Loading */
-        .loading {
-            color: #0f0;
-            font-size: 20px;
-            margin-top: 20px;
-            display: none;
-        }
-        
-        .loading span {
-            animation: piscar 1.5s infinite;
-        }
-        
-        @keyframes piscar {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.3; }
-        }
-    </style>
 </head>
 <body>
     <!-- Tela 1: Menu Principal -->
@@ -567,7 +184,7 @@
     </div>
     
     <!-- Tela 6: Jogo Principal -->
-    <div id="jogoPrincipal" class="tela-container">
+    <div id="jogoPrincipal" class="tela-container" style="display: none;">
         <div class="info-sala" id="infoSalaJogo"></div>
         <div class="jogadores-sala" id="jogadoresSala">
             <!-- Botão para dono da sala -->
@@ -598,10 +215,10 @@
     <script src="js/utils.js"></script>
     
     <!-- Jogo (NOVA ORDEM) -->
-    <script src="js/fighter.js"></script>  <!-- Primeiro (mais básico) -->
+    <script src="js/fighter.js"></script>
     <script src="js/coco-projetil.js"></script>
     <script src="js/ui.js"></script>
-    <script src="js/game.js"></script>  <!-- Último (usa tudo) -->
+    <script src="js/game.js"></script>
     <script src="js/cleanup.js"></script>
 
     <!-- ============================================ -->
@@ -688,7 +305,6 @@
     }
     </script>
     
-
     <!-- Sistema de Salas -->
     <script>
     document.addEventListener('DOMContentLoaded', function() {
@@ -1086,25 +702,39 @@
                                 // Adicionar evento de exclusão
                                 btnExcluirSala?.addEventListener('click', function() {
                                     if (confirm('🚨 TEM CERTEZA QUE DESEJA EXCLUIR ESTA SALA?\n\nTodos os jogadores serão desconectados e a sala será permanentemente removida.')) {
-                                        window.excluirSalaFirebase(salaAtual).then(() => {
-                                            alert('✅ Sala excluída com sucesso!');
-                                            window.pararJogo();
-                                            mostrarTela(telas.menu);
-                                        }).catch(error => {
-                                            alert('❌ Erro ao excluir sala: ' + error);
-                                        });
+                                        if (typeof window.excluirSalaFirebase === 'function') {
+                                            window.excluirSalaFirebase(salaAtual).then(() => {
+                                                alert('✅ Sala excluída com sucesso!');
+                                                if (typeof window.pararJogo === 'function') {
+                                                    window.pararJogo();
+                                                }
+                                                mostrarTela(telas.menu);
+                                            }).catch(error => {
+                                                alert('❌ Erro ao excluir sala: ' + error);
+                                            });
+                                        } else {
+                                            alert('⚠️ Função de exclusão não disponível no modo demo');
+                                            sairDaSala();
+                                        }
                                     }
                                 });
                                 
                                 btnExcluirSalaFooter?.addEventListener('click', function() {
                                     if (confirm('🚨 TEM CERTEZA QUE DESEJA EXCLUIR ESTA SALA?\n\nTodos os jogadores serão desconectados e a sala será permanentemente removida.')) {
-                                        window.excluirSalaFirebase(salaAtual).then(() => {
-                                            alert('✅ Sala excluída com sucesso!');
-                                            window.pararJogo();
-                                            mostrarTela(telas.menu);
-                                        }).catch(error => {
-                                            alert('❌ Erro ao excluir sala: ' + error);
-                                        });
+                                        if (typeof window.excluirSalaFirebase === 'function') {
+                                            window.excluirSalaFirebase(salaAtual).then(() => {
+                                                alert('✅ Sala excluída com sucesso!');
+                                                if (typeof window.pararJogo === 'function') {
+                                                    window.pararJogo();
+                                                }
+                                                mostrarTela(telas.menu);
+                                            }).catch(error => {
+                                                alert('❌ Erro ao excluir sala: ' + error);
+                                            });
+                                        } else {
+                                            alert('⚠️ Função de exclusão não disponível no modo demo');
+                                            sairDaSala();
+                                        }
                                     }
                                 });
                             }
@@ -1556,60 +1186,56 @@
         }
     });
     </script>
+    
+    <!-- Script de inicialização final -->
     <script>
-// Script de inicialização final
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('🚀 Sistema Pinic Fighter inicializando...');
-    
-    // Verificar se todos os elementos necessários existem
-    const canvas = document.getElementById('game');
-    if (!canvas) {
-        console.error('❌ Canvas não encontrado!');
-        return;
-    }
-    
-    // Verificar se imagens existem
-    const logo = document.querySelector('.logo img');
-    if (logo) {
-        logo.onerror = function() {
-            console.warn('⚠️ Logo não encontrada, usando fallback');
-            this.style.display = 'none';
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('🚀 Sistema Pinic Fighter inicializando...');
+        
+        // Verificar se todos os elementos necessários existem
+        const canvas = document.getElementById('game');
+        if (!canvas) {
+            console.error('❌ Canvas não encontrado!');
+            return;
+        }
+        
+        // Verificar se imagens existem
+        const logo = document.querySelector('.logo img');
+        if (logo) {
+            logo.onerror = function() {
+                console.warn('⚠️ Logo não encontrada, usando fallback');
+                this.style.display = 'none';
+            };
+        }
+        
+        // Configurar evento de teclas para prevenir comportamento padrão
+        document.addEventListener('keydown', function(e) {
+            // Prevenir scroll com setas
+            if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+                e.preventDefault();
+            }
+        });
+        
+        // Função de debug para verificar estado do jogo
+        window.debugJogo = function() {
+            console.log('🔍 DEBUG DO JOGO:');
+            console.log('- Canvas:', document.getElementById('game') ? 'OK' : 'FALTA');
+            console.log('- Firebase:', typeof firebase !== 'undefined' ? 'OK' : 'FALTA');
+            console.log('- Keys:', typeof keys !== 'undefined' ? 'OK' : 'FALTA');
+            console.log('- Sistema de salas:', typeof window.verificarECriarSala === 'function' ? 'OK' : 'FALTA');
+            console.log('- Personagens:', typeof criarPersonagem === 'function' ? 'OK' : 'FALTA');
         };
-    }
-    
-    // Configurar evento de teclas para prevenir comportamento padrão
-    document.addEventListener('keydown', function(e) {
-        // Prevenir scroll com setas
-        if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
-            e.preventDefault();
-        }
+        
+        // Testar modo demo após 3 segundos se nada acontecer
+        setTimeout(function() {
+            if (!document.querySelector('#jogoPrincipal').style.display === 'flex') {
+                console.log('🔄 Nenhum jogo iniciado, modo demo disponível');
+            }
+        }, 3000);
+        
+        console.log('✅ Sistema inicializado com sucesso!');
+        console.log('💡 Dica: Pressione F12 e digite debugJogo() para verificar estado');
     });
-    
-    // Função de debug para verificar estado do jogo
-    window.debugJogo = function() {
-        console.log('🔍 DEBUG DO JOGO:');
-        console.log('- Canvas:', document.getElementById('game') ? 'OK' : 'FALTA');
-        console.log('- Firebase:', typeof firebase !== 'undefined' ? 'OK' : 'FALTA');
-        console.log('- Keys:', typeof keys !== 'undefined' ? 'OK' : 'FALTA');
-        console.log('- Sistema de salas:', typeof window.verificarECriarSala === 'function' ? 'OK' : 'FALTA');
-        console.log('- Personagens:', typeof criarPersonagem === 'function' ? 'OK' : 'FALTA');
-    };
-    
-    // Testar modo demo após 3 segundos se nada acontecer
-    setTimeout(function() {
-        if (!document.querySelector('#jogoPrincipal').style.display === 'flex') {
-            console.log('🔄 Nenhum jogo iniciado, modo demo disponível');
-        }
-    }, 3000);
-    
-    console.log('✅ Sistema inicializado com sucesso!');
-    console.log('💡 Dica: Pressione F12 e digite debugJogo() para verificar estado');
-});
-</script>
+    </script>
 </body>
 </html>
-
-
-
-
-
