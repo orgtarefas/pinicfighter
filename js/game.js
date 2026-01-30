@@ -348,6 +348,18 @@ function loopMultiplayer() {
             }
         }
         
+        // ATUALIZAR ESPECIAIS do jogador local
+        if (typeof jogadorLocal.atualizarEspeciais === 'function') {
+            for (const playerId in jogadores) {
+                if (playerId !== meuPlayerIdGame) {
+                    const inimigo = jogadores[playerId].instancia;
+                    if (inimigo && inimigo.vivo) {
+                        jogadorLocal.atualizarEspeciais(inimigo);
+                    }
+                }
+            }
+        }
+        
         // Atualizar cocôs ativos de todos os inimigos
         for (const playerId in jogadores) {
             if (playerId !== meuPlayerIdGame) {
@@ -355,6 +367,11 @@ function loopMultiplayer() {
                 if (jogador && jogador.vivo) {
                     jogador.atualizarCocos(jogadorLocal);
                     jogador.fisica();
+                    
+                    // ATUALIZAR ESPECIAIS dos inimigos
+                    if (typeof jogador.atualizarEspeciais === 'function') {
+                        jogador.atualizarEspeciais(jogadorLocal);
+                    }
                 }
             }
         }
@@ -368,6 +385,14 @@ function loopMultiplayer() {
         const jogador = jogadores[`p${i}`]?.instancia;
         if (jogador) {
             jogador.desenhar();
+        }
+    }
+    
+    // DESENHAR ESPECIAIS de todos os jogadores
+    for (let i = 1; i <= 4; i++) {
+        const jogador = jogadores[`p${i}`]?.instancia;
+        if (jogador && typeof jogador.desenharEspeciais === 'function') {
+            jogador.desenharEspeciais();
         }
     }
     
@@ -610,3 +635,4 @@ function reiniciarJogoMultiplayer() {
 
 console.log('🎮 game.js multiplayer carregado');
 console.log('✅ Aguardando criação/entrada em sala...');
+
