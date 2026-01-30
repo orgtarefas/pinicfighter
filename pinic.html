@@ -591,7 +591,92 @@
     <script src="js/fighter.js"></script>
     <script src="js/ui.js"></script>
     <script src="js/game.js"></script>
-    <script src="js/cleanup.js"></script> <!-- ADICIONADO -->
+    <script src="js/cleanup.js"></script>
+
+    <!-- ============================================ -->
+    <!-- PONTE ENTRE SISTEMA DE SALAS E JOGO -->
+    <!-- ============================================ -->
+    <script>
+    // Esta função conecta o sistema de salas com o game.js
+    window.inicializarJogoSala = function(nomeSala, playerNum, personagem) {
+        console.log(`🎮 [PONTE] Conectando sala ao jogo: ${nomeSala} - P${playerNum} - ${personagem}`);
+        
+        // Guardar nas variáveis globais (para outros scripts usarem)
+        window.salaAtual = nomeSala;
+        window.playerSelecionado = playerNum;
+        window.personagemSelecionado = personagem;
+        
+        // Chamar a função que realmente existe no game.js
+        if (typeof window.inicializarJogoMultiplayer === 'function') {
+            setTimeout(() => {
+                window.inicializarJogoMultiplayer(nomeSala, playerNum, personagem);
+            }, 100);
+        } else {
+            console.error('❌ ERRO: Função inicializarJogoMultiplayer não encontrada!');
+            console.log('🔍 Verificando carregamento dos arquivos...');
+            
+            // Tentar fallback básico
+            iniciarJogoBasico(nomeSala, playerNum, personagem);
+        }
+    };
+    
+    // Fallback básico caso o game.js não carregue
+    function iniciarJogoBasico(sala, player, personagem) {
+        console.log('🔄 Iniciando modo básico de demonstração');
+        
+        const canvas = document.getElementById('game');
+        const ctx = canvas.getContext('2d');
+        
+        // Criar personagem básico
+        const jogadorBasico = {
+            x: 150 + ((parseInt(player) - 1) * 200),
+            y: 300,
+            largura: 50,
+            altura: 80,
+            cor: personagem === 'cocozin' ? '#8B7355' : 
+                 personagem === 'ratazana' ? '#696969' : '#808080',
+            desenhar: function() {
+                ctx.fillStyle = this.cor;
+                ctx.fillRect(this.x, this.y, this.largura, this.altura);
+                
+                // Desenhar nome
+                ctx.fillStyle = 'white';
+                ctx.font = '14px Arial';
+                ctx.fillText(`P${player}: ${personagem}`, this.x, this.y - 10);
+            }
+        };
+        
+        function loopBasico() {
+            ctx.clearRect(0, 0, 900, 400);
+            
+            // Desenhar fundo
+            ctx.fillStyle = '#111';
+            ctx.fillRect(0, 0, 900, 400);
+            
+            // Desenhar chão
+            ctx.fillStyle = '#333';
+            ctx.fillRect(0, 340, 900, 60);
+            
+            // Desenhar personagem
+            jogadorBasico.desenhar();
+            
+            // Texto informativo
+            ctx.fillStyle = '#0f0';
+            ctx.font = '20px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('🎮 MODO DEMONSTRAÇÃO', 450, 50);
+            ctx.fillText(`Sala: ${sala} | Player: ${player} | Personagem: ${personagem}`, 450, 80);
+            ctx.fillStyle = '#ff0';
+            ctx.fillText('Game.js não carregou corretamente', 450, 350);
+            ctx.fillText('Verifique o console para erros', 450, 370);
+            
+            requestAnimationFrame(loopBasico);
+        }
+        
+        loopBasico();
+    }
+    </script>
+    
 
     <!-- Sistema de Salas -->
     <script>
@@ -1236,3 +1321,4 @@
     </script>
 </body>
 </html>
+
