@@ -19,7 +19,28 @@ canvas {
     border: 3px solid #0f0;
 }
 
-/* Adicionar ao final do arquivo existente */
+.personagem-especiais {
+    margin-top: 15px;
+    padding: 10px;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 8px;
+    text-align: left;
+}
+
+.especial-item {
+    margin: 5px 0;
+    font-size: 12px;
+}
+
+.especial-nome {
+    color: #ff0;
+    font-weight: bold;
+}
+
+.especial-comando {
+    color: #0f0;
+    font-family: monospace;
+}
 
 /* Estilos para a seleção (já estão no HTML, mas pode mover para cá) */
 .tela-selecao {
@@ -198,3 +219,4 @@ canvas {
     padding: 10px 20px;
     border-radius: 10px;
 }
+
