@@ -443,6 +443,18 @@ class PersonagemBase {
         this.cocosAtivos = [];
         this.cargaPoder = 0;
     }
+
+    // NOVO: Verificar comandos especiais
+    verificarEspeciais(keys) {
+        // Implementado nas classes filhas
+    }
+    
+    // NOVO: Executar especial
+    executarEspecial(tipo, inimigo) {
+        // Implementado nas classes filhas
+    }
+
+    
 }
 
 // Mapeamento de cores para os players
@@ -779,6 +791,54 @@ class Cocozin extends PersonagemBase {
         ctx.lineTo(this.x + 10, olgoY + 5);
         ctx.stroke();
     }
+
+    atacar(keys, inimigo) {
+        // Primeiro verificar especiais
+        this.verificarEspeciaisCocozin(keys, inimigo);
+        
+        // Depois ataques normais (código existente)...
+    }
+    
+    verificarEspeciaisCocozin(keys, inimigo) {
+        // BOMBA DE COCÔ: Pular + Abaixar no ar
+        if (this.pulando && keys[this.ctrl.baixo] && this.cdPoder <= 0) {
+            this.executarBombaDeCoco(inimigo);
+        }
+    }
+    
+    executarBombaDeCoco(inimigo) {
+        console.log(`${this.id} ativou BOMBA DE COCÔ!`);
+        
+        // Aumenta velocidade da descida
+        this.descendoRapido = true;
+        this.vy = 25;
+        this.cdPoder = 90; // 1.5 segundos de cooldown
+        
+        // Efeito visual
+        this.criarParticulas(this.x, this.y, 15, "#ff0");
+        
+        // Se atingir o chão com força, causa dano em área
+        setTimeout(() => {
+            if (this.y >= CHAO - 5 && this.y <= CHAO + 5) {
+                this.explodirBomba(inimigo);
+            }
+        }, 300);
+    }
+    
+    explodirBomba(inimigo) {
+        // Dano em área
+        const distancia = Math.abs(this.x - inimigo.x);
+        if (distancia < 100 && inimigo.vivo) {
+            inimigo.receberDano(25);
+            
+            // Empurra o inimigo
+            inimigo.x += (inimigo.x < this.x ? -50 : 50);
+            
+            // Efeito de explosão
+            this.criarParticulas(this.x, CHAO, 30, "#8B4513");
+        }
+    }
+    
 }
 
 // CLASSE RATAZANA
@@ -787,13 +847,277 @@ class Ratazana extends PersonagemBase {
         super(x, "#666666", "brown", controles, direcao, id, "ratazana");
         this.corOlhos = "red";
         this.corLuvas = "#8B0000"; // Vermelho escuro para luvas
+        
+        // NOVAS VARIÁVEIS PARA ESPECIAIS
+        this.mordendo = false;
+        this.tempoMordida = 0;
+        this.caudaGirando = false;
+        this.tempoCauda = 0;
+        this.cdMordida = 0;
+        this.cdCauda = 0;
     }
     
+    atacar(keys, inimigo) {
+        if (!this.vivo || !inimigo.vivo || jogoTerminou) return;
+
+        // PRIMEIRO: Verificar comandos especiais
+        this.verificarEspeciais(keys, inimigo);
+        
+        // DEPOIS: Ataques normais (só se não estiver usando especial)
+        if (!this.mordendo && !this.caudaGirando) {
+            // ATAQUE DE SOCO NORMAL
+            if (keys[this.ctrl.atk] && !this.atacando && !this.chutando && !this.deslizando) {
+                this.atacando = true;
+                this.tempoAtaque = 8;
+                this.olhosAbertos = false;
+
+                const hit = {
+                    x: this.x + this.dir * 60, // Mais longo
+                    y: this.y - 40,
+                    w: 50, // Mais largo
+                    h: 35
+                };
+                
+                // Ajuste para abaixado
+                if (this.abaixado && !this.pulando) {
+                    hit.y = this.y - 20;
+                    hit.h = 25;
+                }
+
+                if (colisao(hit, inimigo.hitbox())) {
+                    inimigo.receberDano(12); // Dano maior do soco
+                }
+            }
+
+            // ATAQUE DE CHUTE NORMAL
+            const teclaChute = this.ctrl.chute || (this.id === "p1" ? "c" : ".");
+            if (keys[teclaChute] && !this.chutando && !this.atacando && !this.deslizando && !this.abaixado) {
+                this.chutando = true;
+                this.tempoChute = 12;
+                
+                this.sapatoX = this.x + this.dir * 20;
+                this.sapatoY = this.y + 10;
+
+                const hit = {
+                    x: this.x + this.dir * 60,
+                    y: this.y + 5,
+                    w: 50,
+                    h: 30
+                };
+
+                if (colisao(hit, inimigo.hitbox())) {
+                    inimigo.receberDano(15);
+                }
+            }
+
+            // Atualiza animação do chute
+            if (this.chutando) {
+                this.tempoChute--;
+                if (this.tempoChute > 8) {
+                    this.sapatoX += this.dir * 8;
+                    this.sapatoY -= 2;
+                } else if (this.tempoChute > 4) {
+                    this.sapatoY += 1;
+                } else if (this.tempoChute > 0) {
+                    this.sapatoX -= this.dir * 6;
+                    this.sapatoY += 3;
+                } else {
+                    this.chutando = false;
+                }
+            }
+        }
+        
+        // Atualiza animação do soco
+        if (this.atacando && --this.tempoAtaque <= 0) {
+            this.atacando = false;
+            this.olhosAbertos = true;
+        }
+        
+        // Atualiza animações dos especiais
+        this.atualizarEspeciais(inimigo);
+    }
+    
+    // NOVO: Verificar comandos especiais
+    verificarEspeciais(keys, inimigo) {
+        // Atualizar cooldowns
+        if (this.cdMordida > 0) this.cdMordida--;
+        if (this.cdCauda > 0) this.cdCauda--;
+        
+        // ESPECIAL 1: MORDIDA RÁPIDA (Abaixar + Socar)
+        if (this.abaixado && keys[this.ctrl.atk] && !this.mordendo && !this.caudaGirando && this.cdMordida <= 0) {
+            this.executarMordida(inimigo);
+        }
+        
+        // ESPECIAL 2: CAUDA GIRATÓRIA (Abaixar + Chutar)
+        const teclaChute = this.ctrl.chute || (this.id === "p1" ? "c" : ".");
+        if (this.abaixado && keys[teclaChute] && !this.mordendo && !this.caudaGirando && this.cdCauda <= 0) {
+            this.executarCaudaGiratoria(inimigo);
+        }
+    }
+    
+    executarMordida(inimigo) {
+        console.log(`🐀 ${this.id} ativou MORDIDA RÁPIDA!`);
+        
+        this.mordendo = true;
+        this.tempoMordida = 20; // 20 frames de duração
+        this.cdMordida = 60; // 1 segundo de cooldown
+        this.olhosAbertos = false;
+        
+        // Efeito sonoro visual
+        this.criarParticulas(this.x + this.dir * 30, this.y - 20, 10, "#ff0000");
+        
+        // Hitbox da mordida (rápida e precisa)
+        const hit = {
+            x: this.x + this.dir * 40,
+            y: this.y - 25,
+            w: 35,
+            h: 20
+        };
+        
+        if (colisao(hit, inimigo.hitbox())) {
+            // Dano inicial maior
+            inimigo.receberDano(15);
+            
+            // Efeito de sangramento (dano contínuo)
+            this.aplicarSangramento(inimigo);
+            
+            // Efeito visual de mordida
+            this.criarParticulas(inimigo.x, inimigo.y - 30, 15, "#8B0000");
+        }
+    }
+    
+    aplicarSangramento(inimigo) {
+        // Sangramento causa dano contínuo por 3 segundos
+        for (let i = 1; i <= 6; i++) {
+            setTimeout(() => {
+                if (inimigo.vivo && !jogoTerminou) {
+                    inimigo.receberDano(2);
+                    
+                    // Efeito visual do sangramento
+                    ctx.fillStyle = "rgba(139, 0, 0, 0.5)";
+                    ctx.beginPath();
+                    ctx.arc(inimigo.x, inimigo.y - 40, 15, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }, i * 500); // Dano a cada 0.5 segundos
+        }
+    }
+    
+    executarCaudaGiratoria(inimigo) {
+        console.log(`🐀 ${this.id} ativou CAUDA GIRATÓRIA!`);
+        
+        this.caudaGirando = true;
+        this.tempoCauda = 30; // 30 frames de duração
+        this.cdCauda = 90; // 1.5 segundos de cooldown
+        
+        // Efeito inicial
+        this.criarParticulas(this.x, this.y, 20, "#444444");
+        
+        // Ataque giratório (atinge em área)
+        const raioAtaque = 70;
+        const distancia = Math.sqrt(
+            Math.pow(inimigo.x - this.x, 2) + 
+            Math.pow(inimigo.y - this.y, 2)
+        );
+        
+        if (distancia < raioAtaque && inimigo.vivo) {
+            // Dano significativo
+            inimigo.receberDano(25);
+            
+            // Empurrão forte
+            const dirEmpurrao = inimigo.x < this.x ? -1 : 1;
+            inimigo.x += dirEmpurrao * 100;
+            inimigo.y -= 20; // Levanta o inimigo
+            
+            // Efeito visual
+            this.criarParticulas(inimigo.x, inimigo.y, 25, "#ff6600");
+        }
+    }
+    
+    atualizarEspeciais(inimigo) {
+        // Atualizar mordida
+        if (this.mordendo) {
+            this.tempoMordida--;
+            
+            // Efeito visual durante a mordida
+            if (this.tempoMordida > 10) {
+                this.criarParticulas(this.x + this.dir * 45, this.y - 20, 2, "#ff0000");
+            }
+            
+            if (this.tempoMordida <= 0) {
+                this.mordendo = false;
+                this.olhosAbertos = true;
+            }
+        }
+        
+        // Atualizar cauda giratória
+        if (this.caudaGirando) {
+            this.tempoCauda--;
+            
+            // Efeito visual da cauda girando
+            const angulo = Date.now() / 50; // Rotação rápida
+            for (let i = 0; i < 4; i++) {
+                const raio = 50;
+                const x = this.x + Math.cos(angulo + i * Math.PI / 2) * raio;
+                const y = this.y + Math.sin(angulo + i * Math.PI / 2) * raio;
+                
+                this.criarParticulas(x, y, 2, "#666666");
+            }
+            
+            // Dano contínuo durante o giro
+            if (this.tempoCauda > 15 && this.tempoCauda % 5 === 0) {
+                const raioAtaque = 60;
+                const distancia = Math.sqrt(
+                    Math.pow(inimigo.x - this.x, 2) + 
+                    Math.pow(inimigo.y - this.y, 2)
+                );
+                
+                if (distancia < raioAtaque && inimigo.vivo) {
+                    inimigo.receberDano(5);
+                }
+            }
+            
+            if (this.tempoCauda <= 0) {
+                this.caudaGirando = false;
+            }
+        }
+    }
+    
+    // Sobrescrever o método desenhar para incluir efeitos especiais
     desenharVivo() {
         const raioBase = this.tamanho/2;
         const alturaAjustada = this.abaixado ? 0.6 : 1;
         
-        // Corpo do rato
+        // EFEITOS ESPECIAIS (desenhados primeiro)
+        if (this.mordendo) {
+            // Efeito de mordida
+            ctx.fillStyle = "rgba(255, 0, 0, 0.3)";
+            ctx.beginPath();
+            ctx.arc(this.x + this.dir * 45, this.y - 20, 25, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Dentes brilhantes
+            ctx.fillStyle = "#FFFFFF";
+            for (let i = 0; i < 3; i++) {
+                ctx.beginPath();
+                ctx.arc(this.x + this.dir * (50 + i * 5), this.y - 25 + i * 3, 4, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+        
+        if (this.caudaGirando) {
+            // Efeito de cauda giratória
+            ctx.strokeStyle = "rgba(139, 0, 0, 0.7)";
+            ctx.lineWidth = 8;
+            ctx.setLineDash([5, 5]);
+            
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, 60, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+        
+        // CORPO DO RATO (código original mantido)
         ctx.fillStyle = this.cor;
         
         // Corpo principal
@@ -843,13 +1167,36 @@ class Ratazana extends PersonagemBase {
             }
         }
         
-        // Rabo
-        ctx.strokeStyle = "#444444";
-        ctx.lineWidth = 8;
+        // Rabo (melhorado para especial)
+        ctx.strokeStyle = this.caudaGirando ? "#ff6600" : "#444444";
+        ctx.lineWidth = this.caudaGirando ? 12 : 8;
+        ctx.lineCap = "round";
+        
+        const raboCurvatura = this.caudaGirando ? Math.sin(Date.now() / 100) * 0.5 : 0;
+        
         ctx.beginPath();
         ctx.moveTo(this.x + (this.dir > 0 ? -raioBase : raioBase), this.y - 5);
-        ctx.lineTo(this.x + (this.dir > 0 ? -raioBase * 2 : raioBase * 2), this.y - 15);
-        ctx.lineTo(this.x + (this.dir > 0 ? -raioBase * 2.5 : raioBase * 2.5), this.y);
+        
+        // Curva do rabo (mais expressiva durante especial)
+        if (this.caudaGirando) {
+            ctx.bezierCurveTo(
+                this.x + (this.dir > 0 ? -raioBase * 1.5 : raioBase * 1.5),
+                this.y - 25,
+                this.x + (this.dir > 0 ? -raioBase * 2.2 : raioBase * 2.2),
+                this.y - 10,
+                this.x + (this.dir > 0 ? -raioBase * 2.8 : raioBase * 2.8),
+                this.y + 15
+            );
+        } else {
+            ctx.bezierCurveTo(
+                this.x + (this.dir > 0 ? -raioBase * 1.5 : raioBase * 1.5),
+                this.y - 15,
+                this.x + (this.dir > 0 ? -raioBase * 2.2 : raioBase * 2.2),
+                this.y - 5,
+                this.x + (this.dir > 0 ? -raioBase * 2.5 : raioBase * 2.5),
+                this.y + 10
+            );
+        }
         ctx.stroke();
 
         this.desenharSapatos();
@@ -863,6 +1210,45 @@ class Ratazana extends PersonagemBase {
             ctx.beginPath();
             ctx.ellipse(this.x - this.dir * 20, this.y + 5, 30, 10, 0, 0, Math.PI * 2);
             ctx.fill();
+        }
+        
+        // Indicador de cooldown dos especiais
+        this.desenharCooldowns();
+    }
+    
+    desenharCooldowns() {
+        const y = this.y - this.tamanho - 70;
+        
+        // Cooldown da mordida
+        if (this.cdMordida > 0) {
+            const porcentagem = this.cdMordida / 60;
+            ctx.fillStyle = "rgba(255, 0, 0, 0.5)";
+            ctx.fillRect(this.x - 25, y, 50 * porcentagem, 8);
+            
+            ctx.strokeStyle = "#ffffff";
+            ctx.lineWidth = 2;
+            ctx.strokeRect(this.x - 25, y, 50, 8);
+            
+            ctx.fillStyle = "#ffffff";
+            ctx.font = "10px Arial";
+            ctx.textAlign = "center";
+            ctx.fillText("MORDIDA", this.x, y - 5);
+        }
+        
+        // Cooldown da cauda
+        if (this.cdCauda > 0) {
+            const porcentagem = this.cdCauda / 90;
+            ctx.fillStyle = "rgba(139, 0, 0, 0.5)";
+            ctx.fillRect(this.x - 25, y + 15, 50 * porcentagem, 8);
+            
+            ctx.strokeStyle = "#ffffff";
+            ctx.lineWidth = 2;
+            ctx.strokeRect(this.x - 25, y + 15, 50, 8);
+            
+            ctx.fillStyle = "#ffffff";
+            ctx.font = "10px Arial";
+            ctx.textAlign = "center";
+            ctx.fillText("CAUDA", this.x, y + 10);
         }
     }
     
@@ -910,7 +1296,35 @@ class Ratazana extends PersonagemBase {
         
         const ajusteY = this.abaixado ? 20 : 0;
         
-        if (this.atacando) {
+        // Braços durante mordida são diferentes
+        if (this.mordendo) {
+            // Braços para frente para morder
+            const bracoX = this.x + this.dir * 50;
+            const bracoY = this.y - 35 + ajusteY;
+            
+            ctx.beginPath();
+            ctx.moveTo(this.x + this.dir * 15, this.y - 40 + ajusteY);
+            ctx.lineTo(bracoX, bracoY);
+            ctx.stroke();
+            
+            // Mão de mordida
+            ctx.fillStyle = this.corLuvas;
+            ctx.beginPath();
+            ctx.arc(bracoX, bracoY, 18, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Efeito de mordida na luva
+            ctx.fillStyle = "#FFFFFF";
+            ctx.font = "bold 14px Arial";
+            ctx.textAlign = "center";
+            ctx.fillText("⚔", bracoX, bracoY + 5);
+            
+            // Outro braço
+            ctx.beginPath();
+            ctx.moveTo(this.x - this.dir * 15, this.y - 40 + ajusteY);
+            ctx.lineTo(this.x - this.dir * 40, this.y - 35 + ajusteY);
+            ctx.stroke();
+        } else if (this.atacando) {
             const bracoX = this.x + this.dir * 60;
             const bracoY = this.y - 40 + ajusteY;
             
@@ -948,55 +1362,74 @@ class Ratazana extends PersonagemBase {
             ctx.stroke();
         }
         
-        // Luvas normais
+        // Luvas normais (ou durante especiais)
         ctx.fillStyle = this.corLuvas;
-        ctx.beginPath();
-        ctx.arc(this.x - 50, this.y - 30 + (this.pulando ? -15 : 0) + ajusteY, 15, 0, Math.PI * 2);
-        ctx.fill();
-        
-        ctx.beginPath();
-        ctx.arc(this.x + 50, this.y - 30 + (this.pulando ? -15 : 0) + ajusteY, 15, 0, Math.PI * 2);
-        ctx.fill();
+        if (!this.mordendo) {
+            ctx.beginPath();
+            ctx.arc(this.x - 50, this.y - 30 + (this.pulando ? -15 : 0) + ajusteY, 15, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.beginPath();
+            ctx.arc(this.x + 50, this.y - 30 + (this.pulando ? -15 : 0) + ajusteY, 15, 0, Math.PI * 2);
+            ctx.fill();
+        } else {
+            // Luvas menores durante mordida
+            ctx.beginPath();
+            ctx.arc(this.x - 40, this.y - 35 + ajusteY, 12, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.beginPath();
+            ctx.arc(this.x + 40, this.y - 35 + ajusteY, 12, 0, Math.PI * 2);
+            ctx.fill();
+        }
     }
 
     desenharOlhos() {
         const olgoY = this.y - this.tamanho * (this.abaixado ? 0.7 : 1.0);
         
         if (this.olhosAbertos) {
-            // Olhos vermelhos do rato
-            ctx.fillStyle = this.corOlhos;
+            // Olhos vermelhos do rato (mais intensos durante especiais)
+            const intensidade = this.mordendo || this.caudaGirando ? 1 : 0.8;
+            ctx.fillStyle = this.mordendo ? "#ff0000" : this.corOlhos;
+            
             ctx.beginPath();
-            ctx.arc(this.x - 12, olgoY, 7, 0, Math.PI * 2);
+            ctx.arc(this.x - 12, olgoY, this.mordendo ? 9 : 7, 0, Math.PI * 2);
             ctx.fill();
             ctx.beginPath();
-            ctx.arc(this.x + 12, olgoY, 7, 0, Math.PI * 2);
+            ctx.arc(this.x + 12, olgoY, this.mordendo ? 9 : 7, 0, Math.PI * 2);
             ctx.fill();
             
-            // Pupilas
+            // Pupilas (menores e mais focadas durante mordida)
             ctx.fillStyle = "black";
             let pupilaX = 0;
-            if (this.atacando || this.chutando || this.descendoRapido) {
+            let pupilaY = 0;
+            
+            if (this.mordendo) {
+                pupilaX = this.dir * 2;
+                pupilaY = -2; // Olhos focados
+            } else if (this.atacando || this.chutando || this.descendoRapido || this.caudaGirando) {
                 pupilaX = this.dir * 3;
             } else if (this.pulando) {
                 pupilaX = 0;
+                pupilaY = 2;
             } else {
                 pupilaX = this.dir * 2;
             }
             
             ctx.beginPath();
-            ctx.arc(this.x - 12 + pupilaX, olgoY, 3, 0, Math.PI * 2);
+            ctx.arc(this.x - 12 + pupilaX, olgoY + pupilaY, this.mordendo ? 2 : 3, 0, Math.PI * 2);
             ctx.fill();
             ctx.beginPath();
-            ctx.arc(this.x + 12 + pupilaX, olgoY, 3, 0, Math.PI * 2);
+            ctx.arc(this.x + 12 + pupilaX, olgoY + pupilaY, this.mordendo ? 2 : 3, 0, Math.PI * 2);
             ctx.fill();
             
-            // Brilho nos olhos
-            ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
+            // Brilho nos olhos (mais intenso durante especiais)
+            ctx.fillStyle = this.mordendo ? "rgba(255, 255, 255, 1)" : "rgba(255, 255, 255, 0.8)";
             ctx.beginPath();
-            ctx.arc(this.x - 12 + pupilaX - 1, olgoY - 1, 1.5, 0, Math.PI * 2);
+            ctx.arc(this.x - 12 + pupilaX - 1, olgoY + pupilaY - 1, this.mordendo ? 1.2 : 1.5, 0, Math.PI * 2);
             ctx.fill();
             ctx.beginPath();
-            ctx.arc(this.x + 12 + pupilaX - 1, olgoY - 1, 1.5, 0, Math.PI * 2);
+            ctx.arc(this.x + 12 + pupilaX - 1, olgoY + pupilaY - 1, this.mordendo ? 1.2 : 1.5, 0, Math.PI * 2);
             ctx.fill();
         } else {
             ctx.strokeStyle = "black";
@@ -1013,12 +1446,35 @@ class Ratazana extends PersonagemBase {
     }
 
     desenharBoca() {
-        ctx.strokeStyle = "black";
-        ctx.lineWidth = 3;
+        ctx.strokeStyle = this.mordendo ? "#ff0000" : "black";
+        ctx.lineWidth = this.mordendo ? 4 : 3;
         const bocaY = this.y - this.tamanho * (this.abaixado ? 0.6 : 0.8);
         
-        if (this.atacando) {
-            // Boca aberta agressiva
+        if (this.mordendo) {
+            // Boca aberta agressiva para morder
+            ctx.beginPath();
+            ctx.arc(this.x, bocaY, 18, 0.1, Math.PI - 0.1);
+            ctx.stroke();
+            
+            // Dentes afiados e brilhantes
+            ctx.fillStyle = "#FFFFFF";
+            for(let i = 0; i < 6; i++) {
+                const xPos = this.x - 12 + i * 5;
+                ctx.beginPath();
+                ctx.moveTo(xPos, bocaY + 2);
+                ctx.lineTo(xPos - 2, bocaY + 8);
+                ctx.lineTo(xPos + 2, bocaY + 8);
+                ctx.closePath();
+                ctx.fill();
+            }
+            
+            // Língua
+            ctx.fillStyle = "#ff6666";
+            ctx.beginPath();
+            ctx.ellipse(this.x, bocaY + 10, 8, 4, 0, 0, Math.PI * 2);
+            ctx.fill();
+        } else if (this.atacando) {
+            // Boca aberta agressiva normal
             ctx.beginPath();
             ctx.arc(this.x, bocaY, 15, 0.1, Math.PI - 0.1);
             ctx.stroke();
@@ -1041,8 +1497,13 @@ class Ratazana extends PersonagemBase {
             ctx.moveTo(this.x - 6, bocaY);
             ctx.lineTo(this.x + 6, bocaY);
             ctx.stroke();
+        } else if (this.caudaGirando) {
+            // Sorriso malicioso durante cauda giratória
+            ctx.beginPath();
+            ctx.arc(this.x, bocaY, 12, 0.4, Math.PI - 0.4);
+            ctx.stroke();
         } else {
-            // Sorriso malicioso
+            // Sorriso malicioso normal
             ctx.beginPath();
             ctx.arc(this.x, bocaY, 10, 0.3, Math.PI - 0.3);
             ctx.stroke();
@@ -1087,72 +1548,15 @@ class Ratazana extends PersonagemBase {
         ctx.stroke();
     }
     
-    // Ratazana tem ataque especial: Soco potente
-    atacar(keys, inimigo) {
-        if (!this.vivo || !inimigo.vivo || jogoTerminou) return;
-
-        if (keys[this.ctrl.atk] && !this.atacando && !this.chutando && !this.deslizando) {
-            this.atacando = true;
-            this.tempoAtaque = 8;
-            this.olhosAbertos = false;
-
-            const hit = {
-                x: this.x + this.dir * 60, // Mais longo
-                y: this.y - 40,
-                w: 50, // Mais largo
-                h: 35
-            };
-            
-            // Ajuste para abaixado
-            if (this.abaixado && !this.pulando) {
-                hit.y = this.y - 20;
-                hit.h = 25;
-            }
-
-            if (colisao(hit, inimigo.hitbox())) {
-                inimigo.receberDano(12); // Dano maior do soco
-            }
-        }
-
-        const teclaChute = this.id === "p1" ? "c" : ".";
-        if (keys[teclaChute] && !this.chutando && !this.atacando && !this.deslizando && !this.abaixado) {
-            this.chutando = true;
-            this.tempoChute = 12;
-            
-            this.sapatoX = this.x + this.dir * 20;
-            this.sapatoY = this.y + 10;
-
-            const hit = {
-                x: this.x + this.dir * 60,
-                y: this.y + 5,
-                w: 50,
-                h: 30
-            };
-
-            if (colisao(hit, inimigo.hitbox())) {
-                inimigo.receberDano(15);
-            }
-        }
-
-        if (this.chutando) {
-            this.tempoChute--;
-            if (this.tempoChute > 8) {
-                this.sapatoX += this.dir * 8;
-                this.sapatoY -= 2;
-            } else if (this.tempoChute > 4) {
-                this.sapatoY += 1;
-            } else if (this.tempoChute > 0) {
-                this.sapatoX -= this.dir * 6;
-                this.sapatoY += 3;
-            } else {
-                this.chutando = false;
-            }
-        }
-        
-        if (this.atacando && --this.tempoAtaque <= 0) {
-            this.atacando = false;
-            this.olhosAbertos = true;
-        }
+    // Sobrescrever método reset para limpar estados especiais
+    reset() {
+        super.reset();
+        this.mordendo = false;
+        this.tempoMordida = 0;
+        this.caudaGirando = false;
+        this.tempoCauda = 0;
+        this.cdMordida = 0;
+        this.cdCauda = 0;
     }
 }
 
@@ -1160,17 +1564,380 @@ class Ratazana extends PersonagemBase {
 class Peidovélio extends PersonagemBase {
     constructor(x, cor, corSapato, controles, direcao, id) {
         super(x, "#D3D3D3", "#808080", controles, direcao, id, "peidovélio");
+        
+        // ESPECIAIS DO PEIDOVÉLIO
         this.fumacas = [];
         this.tempoFumaca = 0;
+        this.nuvensToxicas = []; // Nuvens venenosas ativas
+        this.tornados = []; // Tornados ativos
+        this.cdNuvem = 0; // Cooldown da nuvem tóxica
+        this.cdTornado = 0; // Cooldown do tornado
+        this.usandoEspecial = false; // Flag para controle de animação
+    }
+    
+    atacar(keys, inimigo) {
+        if (!this.vivo || !inimigo.vivo || jogoTerminou) return;
+
+        // PRIMEIRO: Verificar comandos especiais
+        this.verificarEspeciais(keys, inimigo);
+        
+        // DEPOIS: Ataques normais (só se não estiver usando especial)
+        if (!this.usandoEspecial) {
+            if (keys[this.ctrl.atk] && !this.atacando && !this.chutando && !this.deslizando) {
+                this.atacando = true;
+                this.tempoAtaque = 12; // Mais longo
+                this.olhosAbertos = false;
+
+                const hit = {
+                    x: this.x + this.dir * 40,
+                    y: this.y - 50,
+                    w: 60, // Área maior
+                    h: 40
+                };
+                
+                // Ajuste para abaixado
+                if (this.abaixado && !this.pulando) {
+                    hit.y = this.y - 30;
+                    hit.h = 30;
+                }
+
+                if (colisao(hit, inimigo.hitbox())) {
+                    inimigo.receberDano(6); // Dano menor mas...
+                    // Chance de envenenamento (dano contínuo)
+                    if (Math.random() < 0.3) {
+                        this.aplicarVenenoLeve(inimigo);
+                    }
+                }
+                
+                // Cria fumaça no ataque
+                this.criarFumaca(this.x + this.dir * 30, this.y - 40, this.dir, "#4a8a4a");
+            }
+
+            const teclaChute = this.ctrl.chute || (this.id === "p1" ? "c" : ".");
+            if (keys[teclaChute] && !this.chutando && !this.atacando && !this.deslizando && !this.abaixado) {
+                this.chutando = true;
+                this.tempoChute = 12;
+                
+                this.sapatoX = this.x + this.dir * 20;
+                this.sapatoY = this.y + 10;
+
+                const hit = {
+                    x: this.x + this.dir * 60,
+                    y: this.y + 5,
+                    w: 50,
+                    h: 30
+                };
+
+                if (colisao(hit, inimigo.hitbox())) {
+                    inimigo.receberDano(15);
+                    // Fumaça no chute
+                    this.criarFumaca(this.sapatoX, this.sapatoY, this.dir, "#696969");
+                }
+            }
+
+            if (this.chutando) {
+                this.tempoChute--;
+                if (this.tempoChute > 8) {
+                    this.sapatoX += this.dir * 8;
+                    this.sapatoY -= 2;
+                    // Rastro de fumaça
+                    this.criarFumaca(this.sapatoX, this.sapatoY, this.dir, "#a9a9a9");
+                } else if (this.tempoChute > 4) {
+                    this.sapatoY += 1;
+                } else if (this.tempoChute > 0) {
+                    this.sapatoX -= this.dir * 6;
+                    this.sapatoY += 3;
+                } else {
+                    this.chutando = false;
+                }
+            }
+        }
+        
+        if (this.atacando && --this.tempoAtaque <= 0) {
+            this.atacando = false;
+            this.olhosAbertos = true;
+        }
+        
+        // Atualizar efeitos especiais
+        this.atualizarEspeciais(inimigo);
+    }
+    
+    // NOVO: Verificar comandos especiais
+    verificarEspeciais(keys, inimigo) {
+        // Atualizar cooldowns
+        if (this.cdNuvem > 0) this.cdNuvem--;
+        if (this.cdTornado > 0) this.cdTornado--;
+        
+        // ESPECIAL 1: NUVEM TÓXICA (Abaixar + Socar)
+        if (this.abaixado && keys[this.ctrl.atk] && !this.usandoEspecial && this.cdNuvem <= 0) {
+            this.executarNuvemToxica(inimigo);
+        }
+        
+        // ESPECIAL 2: TORNADO DE PEIDO (Pular + Abaixar + Chutar) - NO CHÃO
+        const teclaChute = this.ctrl.chute || (this.id === "p1" ? "c" : ".");
+        if (!this.pulando && keys[this.ctrl.pulo] && keys[this.ctrl.baixo] && keys[teclaChute] && 
+            !this.usandoEspecial && this.cdTornado <= 0) {
+            this.executarTornadoPeido(inimigo);
+        }
+    }
+    
+    executarNuvemToxica(inimigo) {
+        console.log(`💨 ${this.id} ativou NUVEM TÓXICA!`);
+        
+        this.usandoEspecial = true;
+        this.cdNuvem = 120; // 2 segundos de cooldown
+        this.atacando = true;
+        this.tempoAtaque = 25;
+        
+        // Cria nuvem de gás tóxico
+        const nuvem = {
+            x: this.x + this.dir * 40,
+            y: this.y - 50,
+            raio: 80,
+            tempoVida: 150, // 2.5 segundos
+            alpha: 0.7,
+            venenoAtivo: true,
+            dono: this.id
+        };
+        
+        this.nuvensToxicas.push(nuvem);
+        
+        // Efeito visual inicial
+        for (let i = 0; i < 25; i++) {
+            this.criarFumaca(nuvem.x, nuvem.y, this.dir, "#4a8a4a");
+        }
+        
+        // Dano inicial se inimigo estiver na área
+        this.aplicarDanoNuvem(nuvem, inimigo);
+    }
+    
+    aplicarDanoNuvem(nuvem, inimigo) {
+        const distancia = Math.sqrt(
+            Math.pow(inimigo.x - nuvem.x, 2) + 
+            Math.pow(inimigo.y - nuvem.y, 2)
+        );
+        
+        if (distancia < nuvem.raio && inimigo.vivo) {
+            // Dano inicial significativo
+            inimigo.receberDano(12);
+            
+            // Aplica efeito de veneno forte
+            this.aplicarVenenoForte(inimigo);
+            
+            // Efeito visual do veneno
+            ctx.fillStyle = "rgba(0, 255, 0, 0.4)";
+            ctx.beginPath();
+            ctx.arc(inimigo.x, inimigo.y - 50, 25, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+    
+    aplicarVenenoForte(inimigo) {
+        // Veneno forte causa dano contínuo por 4 segundos
+        for (let i = 1; i <= 8; i++) {
+            setTimeout(() => {
+                if (inimigo.vivo && !jogoTerminou) {
+                    inimigo.receberDano(3);
+                    
+                    // Efeito visual
+                    this.criarFumaca(inimigo.x, inimigo.y - 40, 0, "#00ff00");
+                }
+            }, i * 500); // Dano a cada 0.5 segundos
+        }
+    }
+    
+    aplicarVenenoLeve(inimigo) {
+        // Veneno leve causa dano contínuo por 2.5 segundos
+        for (let i = 1; i <= 5; i++) {
+            setTimeout(() => {
+                if (inimigo.vivo && !jogoTerminou) {
+                    inimigo.receberDano(2);
+                }
+            }, i * 500);
+        }
+    }
+    
+    executarTornadoPeido(inimigo) {
+        console.log(`💨 ${this.id} ativou TORNADO DE PEIDO!`);
+        
+        this.usandoEspecial = true;
+        this.cdTornado = 180; // 3 segundos de cooldown
+        this.chutando = true;
+        this.tempoChute = 20;
+        
+        // Cria tornado que se move
+        const tornado = {
+            x: this.x,
+            y: this.y - 30,
+            dir: this.dir,
+            velocidade: 6,
+            raio: 50,
+            forca: 80, // Força do empurrão
+            tempoVida: 90, // 1.5 segundos
+            alpha: 0.9,
+            dono: this.id
+        };
+        
+        this.tornados.push(tornado);
+        
+        // Efeito visual inicial poderoso
+        for (let i = 0; i < 40; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const radius = Math.random() * 40;
+            this.criarFumaca(
+                this.x + Math.cos(angle) * radius,
+                this.y - 30 + Math.sin(angle) * radius,
+                this.dir * 2,
+                "#d3d3d3"
+            );
+        }
+        
+        // Dano inicial se inimigo estiver perto
+        const distancia = Math.sqrt(
+            Math.pow(inimigo.x - this.x, 2) + 
+            Math.pow(inimigo.y - (this.y - 30), 2)
+        );
+        
+        if (distancia < 70 && inimigo.vivo) {
+            inimigo.receberDano(20);
+            inimigo.x += this.dir * 60; // Empurrão inicial
+        }
+    }
+    
+    atualizarEspeciais(inimigo) {
+        // Atualizar nuvens tóxicas
+        for (let i = this.nuvensToxicas.length - 1; i >= 0; i--) {
+            const nuvem = this.nuvensToxicas[i];
+            nuvem.tempoVida--;
+            nuvem.alpha = nuvem.tempoVida / 150 * 0.7;
+            
+            // Dano periódico a cada 10 frames
+            if (nuvem.tempoVida % 10 === 0 && nuvem.venenoAtivo) {
+                const distancia = Math.sqrt(
+                    Math.pow(inimigo.x - nuvem.x, 2) + 
+                    Math.pow(inimigo.y - nuvem.y, 2)
+                );
+                
+                if (distancia < nuvem.raio && inimigo.vivo) {
+                    inimigo.receberDano(2);
+                    
+                    // Efeito visual
+                    this.criarFumaca(inimigo.x, inimigo.y - 30, 0, "#4a8a4a");
+                }
+            }
+            
+            // Remove nuvem antiga
+            if (nuvem.tempoVida <= 0) {
+                this.nuvensToxicas.splice(i, 1);
+            }
+        }
+        
+        // Atualizar tornados
+        for (let i = this.tornados.length - 1; i >= 0; i--) {
+            const tornado = this.tornados[i];
+            tornado.x += tornado.dir * tornado.velocidade;
+            tornado.tempoVida--;
+            tornado.alpha = tornado.tempoVida / 90 * 0.9;
+            
+            // Verifica colisão com inimigo
+            const distancia = Math.sqrt(
+                Math.pow(inimigo.x - tornado.x, 2) + 
+                Math.pow(inimigo.y - tornado.y, 2)
+            );
+            
+            if (distancia < tornado.raio && inimigo.vivo) {
+                // Dano contínuo enquanto dentro do tornado
+                if (tornado.tempoVida % 5 === 0) {
+                    inimigo.receberDano(8);
+                }
+                
+                // Empurra o inimigo na direção do tornado
+                const empurraX = (inimigo.x < tornado.x ? 1 : -1) * 3;
+                const empurraY = (inimigo.y < tornado.y ? -2 : 2);
+                
+                inimigo.x += empurraX;
+                inimigo.y += empurraY;
+                
+                // Efeito visual
+                this.criarFumaca(inimigo.x, inimigo.y, 0, "#a9a9a9");
+            }
+            
+            // Cria partículas do tornado
+            if (tornado.tempoVida % 3 === 0) {
+                const angle = Math.random() * Math.PI * 2;
+                const radius = Math.random() * tornado.raio;
+                this.criarFumaca(
+                    tornado.x + Math.cos(angle) * radius,
+                    tornado.y + Math.sin(angle) * radius,
+                    tornado.dir,
+                    "#d3d3d3"
+                );
+            }
+            
+            // Remove tornado antigo
+            if (tornado.tempoVida <= 0 || tornado.x < -100 || tornado.x > canvas.width + 100) {
+                this.tornados.splice(i, 1);
+            }
+        }
+        
+        // Resetar flag de especial se não há mais especiais ativos
+        if (this.nuvensToxicas.length === 0 && this.tornados.length === 0) {
+            this.usandoEspecial = false;
+        }
+    }
+    
+    criarFumaca(x, y, direcao, cor = "#a9a9a9") {
+        this.tempoFumaca++;
+        if (this.tempoFumaca > 3) {
+            this.fumacas.push({
+                x: x,
+                y: y,
+                raio: 8,
+                alpha: 0.9,
+                vx: (Math.random() - 0.5) * 3 + direcao * 1.5,
+                vy: Math.random() * -2 - 1,
+                vida: 25,
+                cor: cor
+            });
+            this.tempoFumaca = 0;
+        }
+    }
+    
+    atualizarFumacas() {
+        for (let i = this.fumacas.length - 1; i >= 0; i--) {
+            const f = this.fumacas[i];
+            
+            // Atualiza posição
+            f.x += f.vx;
+            f.y += f.vy;
+            f.raio += 0.4;
+            f.alpha -= 0.03;
+            f.vida--;
+            
+            // Desenha fumaça
+            ctx.fillStyle = f.cor.replace(")", `, ${f.alpha})`).replace("rgb", "rgba");
+            ctx.beginPath();
+            ctx.arc(f.x, f.y, f.raio, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Remove fumaça antiga
+            if (f.vida <= 0 || f.alpha <= 0) {
+                this.fumacas.splice(i, 1);
+            }
+        }
     }
     
     desenharVivo() {
         const raioBase = this.tamanho/2;
         const alturaAjustada = this.abaixado ? 0.7 : 1;
         
-        // Corpo de fumaça (nuvem)
-        ctx.fillStyle = "rgba(211, 211, 211, 0.8)";
-        ctx.strokeStyle = "rgba(169, 169, 169, 0.9)";
+        // PRIMEIRO: Desenhar efeitos especiais
+        this.desenharEspeciais();
+        
+        // SEGUNDO: Corpo de fumaça (nuvem)
+        const intensidade = this.usandoEspecial ? 1 : 0.8;
+        ctx.fillStyle = `rgba(211, 211, 211, ${0.8 * intensidade})`;
+        ctx.strokeStyle = `rgba(169, 169, 169, ${0.9 * intensidade})`;
         ctx.lineWidth = 3;
         
         // Desenha várias bolhas para efeito de nuvem
@@ -1190,12 +1957,14 @@ class Peidovélio extends PersonagemBase {
         }
         
         // Olhos flutuantes
+        const olgoY = this.y - this.tamanho * (this.abaixado ? 0.7 : 0.9);
         const olhoOffset = Math.sin(Date.now()/300) * 3;
-        this.desenharOlhos(olgoY);
+        this.desenharOlhos(olgoY + olhoOffset);
         
         // Boca flutuante
+        const bocaY = this.y - this.tamanho * (this.abaixado ? 0.5 : 0.7);
         const bocaOffset = Math.cos(Date.now()/400) * 2;
-        this.desenharBoca();
+        this.desenharBoca(bocaY + bocaOffset);
         
         // Fumaças ativas
         this.atualizarFumacas();
@@ -1211,13 +1980,120 @@ class Peidovélio extends PersonagemBase {
         
         this.desenharSapatos();
         this.desenharBracos();
+        
+        // Indicador de cooldown
+        this.desenharCooldowns();
+    }
+    
+    desenharEspeciais() {
+        // Desenhar nuvens tóxicas
+        this.nuvensToxicas.forEach(nuvem => {
+            ctx.fillStyle = `rgba(0, 255, 0, ${nuvem.alpha * 0.5})`;
+            ctx.beginPath();
+            ctx.arc(nuvem.x, nuvem.y, nuvem.raio, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Efeito de pulsação
+            ctx.strokeStyle = `rgba(0, 200, 0, ${nuvem.alpha * 0.7})`;
+            ctx.lineWidth = 3;
+            ctx.setLineDash([5, 5]);
+            ctx.beginPath();
+            ctx.arc(nuvem.x, nuvem.y, nuvem.raio * 0.8, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            
+            // Símbolo de veneno
+            ctx.fillStyle = `rgba(255, 255, 255, ${nuvem.alpha})`;
+            ctx.font = "bold 20px Arial";
+            ctx.textAlign = "center";
+            ctx.fillText("☠", nuvem.x, nuvem.y + 7);
+        });
+        
+        // Desenhar tornados
+        this.tornados.forEach(tornado => {
+            const rotation = Date.now() / 50; // Rotação rápida
+            
+            // Corpo do tornado
+            ctx.fillStyle = `rgba(169, 169, 169, ${tornado.alpha * 0.6})`;
+            for (let i = 0; i < 3; i++) {
+                const raio = tornado.raio * (0.8 - i * 0.2);
+                ctx.beginPath();
+                ctx.ellipse(
+                    tornado.x, 
+                    tornado.y, 
+                    raio, 
+                    raio * 0.7, 
+                    rotation + i, 
+                    0, Math.PI * 2
+                );
+                ctx.fill();
+            }
+            
+            // Efeito de rotação
+            ctx.strokeStyle = `rgba(255, 255, 255, ${tornado.alpha * 0.9})`;
+            ctx.lineWidth = 4;
+            for (let i = 0; i < 4; i++) {
+                ctx.beginPath();
+                ctx.arc(
+                    tornado.x, 
+                    tornado.y, 
+                    tornado.raio * 0.6, 
+                    rotation + i * Math.PI / 2, 
+                    rotation + i * Math.PI / 2 + 1
+                );
+                ctx.stroke();
+            }
+            
+            // Símbolo do tornado
+            ctx.fillStyle = `rgba(0, 0, 0, ${tornado.alpha})`;
+            ctx.font = "bold 24px Arial";
+            ctx.textAlign = "center";
+            ctx.fillText("🌀", tornado.x, tornado.y + 8);
+        });
+    }
+    
+    desenharCooldowns() {
+        const y = this.y - this.tamanho - 70;
+        
+        // Cooldown da nuvem tóxica
+        if (this.cdNuvem > 0) {
+            const porcentagem = this.cdNuvem / 120;
+            ctx.fillStyle = "rgba(0, 255, 0, 0.5)";
+            ctx.fillRect(this.x - 25, y, 50 * porcentagem, 8);
+            
+            ctx.strokeStyle = "#ffffff";
+            ctx.lineWidth = 2;
+            ctx.strokeRect(this.x - 25, y, 50, 8);
+            
+            ctx.fillStyle = "#ffffff";
+            ctx.font = "10px Arial";
+            ctx.textAlign = "center";
+            ctx.fillText("NUVEM", this.x, y - 5);
+        }
+        
+        // Cooldown do tornado
+        if (this.cdTornado > 0) {
+            const porcentagem = this.cdTornado / 180;
+            ctx.fillStyle = "rgba(169, 169, 169, 0.5)";
+            ctx.fillRect(this.x - 25, y + 15, 50 * porcentagem, 8);
+            
+            ctx.strokeStyle = "#ffffff";
+            ctx.lineWidth = 2;
+            ctx.strokeRect(this.x - 25, y + 15, 50, 8);
+            
+            ctx.fillStyle = "#ffffff";
+            ctx.font = "10px Arial";
+            ctx.textAlign = "center";
+            ctx.fillText("TORNADO", this.x, y + 10);
+        }
     }
     
     desenharSapatos() {
         const ajusteY = this.abaixado ? 25 : 15;
         
-        // Sapatos de fumaça
-        ctx.fillStyle = "rgba(128, 128, 128, 0.8)";
+        // Sapatos de fumaça (mais definidos durante especiais)
+        const intensidade = this.usandoEspecial ? 1 : 0.8;
+        ctx.fillStyle = `rgba(128, 128, 128, ${0.8 * intensidade})`;
         
         const sapatoEsqX = this.x - 15;
         const sapatoDirX = this.x + 15;
@@ -1237,18 +2113,28 @@ class Peidovélio extends PersonagemBase {
             ctx.arc(sapatoDirX, this.y + ajusteY, 12, 0, Math.PI * 2);
             ctx.fill();
         }
+        
+        // Efeito de fumaça nos pés durante especiais
+        if (this.usandoEspecial) {
+            this.criarFumaca(sapatoEsqX, this.y + ajusteY, -1, "#696969");
+            this.criarFumaca(sapatoDirX, this.y + ajusteY, 1, "#696969");
+        }
     }
 
     desenharBracos() {
-        ctx.strokeStyle = "rgba(169, 169, 169, 0.9)";
+        const intensidade = this.usandoEspecial ? 1 : 0.9;
+        ctx.strokeStyle = `rgba(169, 169, 169, ${0.9 * intensidade})`;
         ctx.lineWidth = 10;
         ctx.lineCap = "round";
         
         const ajusteY = this.abaixado ? 20 : 0;
         const bracoOffset = Math.sin(Date.now()/400) * 2;
         
-        if (this.atacando) {
-            const bracoX = this.x + this.dir * 60;
+        // Braços mais expressivos durante especiais
+        const comprimentoBraco = this.usandoEspecial ? 70 : 60;
+        
+        if (this.atacando || this.usandoEspecial) {
+            const bracoX = this.x + this.dir * comprimentoBraco;
             const bracoY = this.y - 40 + ajusteY + bracoOffset;
             
             ctx.beginPath();
@@ -1256,11 +2142,20 @@ class Peidovélio extends PersonagemBase {
             ctx.lineTo(bracoX, bracoY);
             ctx.stroke();
             
-            // Mão de fumaça
-            ctx.fillStyle = "rgba(211, 211, 211, 0.8)";
+            // Mão de fumaça (mais densa durante especiais)
+            const tamanhoMao = this.usandoEspecial ? 18 : 15;
+            ctx.fillStyle = `rgba(211, 211, 211, ${0.8 * intensidade})`;
             ctx.beginPath();
-            ctx.arc(bracoX, bracoY, 15, 0, Math.PI * 2);
+            ctx.arc(bracoX, bracoY, tamanhoMao, 0, Math.PI * 2);
             ctx.fill();
+            
+            // Símbolo na mão durante nuvem tóxica
+            if (this.usandoEspecial && this.cdNuvem > 0) {
+                ctx.fillStyle = "#00ff00";
+                ctx.font = "bold 14px Arial";
+                ctx.textAlign = "center";
+                ctx.fillText("☣", bracoX, bracoY + 5);
+            }
             
             // Outro braço
             ctx.beginPath();
@@ -1280,254 +2175,180 @@ class Peidovélio extends PersonagemBase {
         }
         
         // Mãos
-        ctx.fillStyle = "rgba(211, 211, 211, 0.8)";
+        const tamanhoMaoNormal = this.usandoEspecial ? 14 : 12;
+        ctx.fillStyle = `rgba(211, 211, 211, ${0.8 * intensidade})`;
         ctx.beginPath();
-        ctx.arc(this.x - 50, this.y - 30 + (this.pulando ? -15 : 0) + ajusteY + bracoOffset, 12, 0, Math.PI * 2);
+        ctx.arc(this.x - 50, this.y - 30 + (this.pulando ? -15 : 0) + ajusteY + bracoOffset, tamanhoMaoNormal, 0, Math.PI * 2);
         ctx.fill();
         
         ctx.beginPath();
-        ctx.arc(this.x + 50, this.y - 30 + (this.pulando ? -15 : 0) + ajusteY + bracoOffset, 12, 0, Math.PI * 2);
+        ctx.arc(this.x + 50, this.y - 30 + (this.pulando ? -15 : 0) + ajusteY + bracoOffset, tamanhoMaoNormal, 0, Math.PI * 2);
         ctx.fill();
     }
 
-    desenharOlhos() {
-        const olgoY = this.y - this.tamanho * (this.abaixado ? 0.7 : 0.9);
-        const olhoOffset = Math.sin(Date.now()/300) * 3;
-        
+    desenharOlhos(olgoY) {
         if (this.olhosAbertos) {
-            // Olhos esfumaçados
-            ctx.fillStyle = "rgba(105, 105, 105, 0.9)";
+            // Olhos esfumaçados (mais intensos durante especiais)
+            const intensidade = this.usandoEspecial ? 1 : 0.9;
+            const corOlhos = this.usandoEspecial ? "#00ff00" : "rgba(105, 105, 105, 0.9)";
+            
+            ctx.fillStyle = corOlhos;
+            const tamanhoOlhos = this.usandoEspecial ? 10 : 8;
             ctx.beginPath();
-            ctx.arc(this.x - 15, olgoY + olhoOffset, 8, 0, Math.PI * 2);
+            ctx.arc(this.x - 15, olgoY, tamanhoOlhos, 0, Math.PI * 2);
             ctx.fill();
             ctx.beginPath();
-            ctx.arc(this.x + 15, olgoY + olhoOffset, 8, 0, Math.PI * 2);
+            ctx.arc(this.x + 15, olgoY, tamanhoOlhos, 0, Math.PI * 2);
             ctx.fill();
             
-            // Pupilas flutuantes
-            ctx.fillStyle = "rgba(0, 0, 0, 0.8)";
+            // Pupilas flutuantes (mais focadas durante especiais)
+            ctx.fillStyle = this.usandoEspecial ? "#000000" : "rgba(0, 0, 0, 0.8)";
             let pupilaX = 0;
-            if (this.atacando || this.chutando || this.descendoRapido) {
+            let pupilaY = 0;
+            
+            if (this.usandoEspecial) {
+                pupilaX = this.dir * 3;
+                pupilaY = -2; // Olhos focados para cima
+            } else if (this.atacando || this.chutando || this.descendoRapido) {
                 pupilaX = this.dir * 4;
             } else if (this.pulando) {
                 pupilaX = 0;
+                pupilaY = 2;
             } else {
                 pupilaX = this.dir * 2;
             }
             
             const pupilaOffset = Math.cos(Date.now()/350) * 2;
+            const tamanhoPupila = this.usandoEspecial ? 5 : 4;
             ctx.beginPath();
-            ctx.arc(this.x - 15 + pupilaX + pupilaOffset, olgoY + olhoOffset, 4, 0, Math.PI * 2);
+            ctx.arc(this.x - 15 + pupilaX + pupilaOffset, olgoY + pupilaY, tamanhoPupila, 0, Math.PI * 2);
             ctx.fill();
             ctx.beginPath();
-            ctx.arc(this.x + 15 + pupilaX + pupilaOffset, olgoY + olhoOffset, 4, 0, Math.PI * 2);
+            ctx.arc(this.x + 15 + pupilaX + pupilaOffset, olgoY + pupilaY, tamanhoPupila, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Brilho nos olhos (mais intenso durante especiais)
+            ctx.fillStyle = this.usandoEspecial ? "rgba(255, 255, 255, 1)" : "rgba(255, 255, 255, 0.8)";
+            const tamanhoBrilho = this.usandoEspecial ? 2.5 : 1.5;
+            ctx.beginPath();
+            ctx.arc(this.x - 15 + pupilaX + pupilaOffset - 1, olgoY + pupilaY - 1, tamanhoBrilho, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(this.x + 15 + pupilaX + pupilaOffset - 1, olgoY + pupilaY - 1, tamanhoBrilho, 0, Math.PI * 2);
             ctx.fill();
         } else {
             ctx.strokeStyle = "rgba(105, 105, 105, 0.9)";
             ctx.lineWidth = 4;
             ctx.beginPath();
-            ctx.moveTo(this.x - 23, olgoY + olhoOffset);
-            ctx.lineTo(this.x - 7, olgoY + olhoOffset);
+            ctx.moveTo(this.x - 23, olgoY);
+            ctx.lineTo(this.x - 7, olgoY);
             ctx.stroke();
             ctx.beginPath();
-            ctx.moveTo(this.x + 7, olgoY + olhoOffset);
-            ctx.lineTo(this.x + 23, olgoY + olhoOffset);
+            ctx.moveTo(this.x + 7, olgoY);
+            ctx.lineTo(this.x + 23, olgoY);
             ctx.stroke();
         }
     }
 
-    desenharBoca() {
-        ctx.strokeStyle = "rgba(105, 105, 105, 0.9)";
-        ctx.lineWidth = 4;
-        const bocaY = this.y - this.tamanho * (this.abaixado ? 0.5 : 0.7);
-        const bocaOffset = Math.cos(Date.now()/400) * 2;
+    desenharBoca(bocaY) {
+        const intensidade = this.usandoEspecial ? 1 : 0.9;
+        ctx.strokeStyle = this.usandoEspecial ? "#00ff00" : "rgba(105, 105, 105, 0.9)";
+        ctx.lineWidth = this.usandoEspecial ? 5 : 4;
         
-        if (this.atacando) {
+        if (this.atacando || this.usandoEspecial) {
+            // Boca aberta liberando gás
             ctx.beginPath();
-            ctx.arc(this.x, bocaY + bocaOffset, 15, 0, Math.PI);
+            ctx.arc(this.x, bocaY, this.usandoEspecial ? 18 : 15, 0, Math.PI);
             ctx.stroke();
             
-            // Fumaça saindo da boca
-            this.criarFumaca(this.x, bocaY + 10, this.dir);
+            // Fumaça saindo da boca (mais intensa durante especiais)
+            for (let i = 0; i < (this.usandoEspecial ? 3 : 1); i++) {
+                this.criarFumaca(this.x, bocaY + 10, this.dir, this.usandoEspecial ? "#00ff00" : "#a9a9a9");
+            }
         } else if (this.chutando) {
             ctx.beginPath();
-            ctx.moveTo(this.x - 10, bocaY + bocaOffset);
-            ctx.lineTo(this.x + 10, bocaY + bocaOffset);
+            ctx.moveTo(this.x - 10, bocaY);
+            ctx.lineTo(this.x + 10, bocaY);
             ctx.stroke();
         } else if (this.abaixado) {
             ctx.beginPath();
-            ctx.moveTo(this.x - 8, bocaY + bocaOffset);
-            ctx.lineTo(this.x + 8, bocaY + bocaOffset);
+            ctx.moveTo(this.x - 8, bocaY);
+            ctx.lineTo(this.x + 8, bocaY);
             ctx.stroke();
         } else if (this.descendoRapido) {
             // Boca aberta com fumaça
             ctx.beginPath();
-            ctx.arc(this.x, bocaY + bocaOffset, 12, 0.1, Math.PI - 0.1);
+            ctx.arc(this.x, bocaY, 12, 0.1, Math.PI - 0.1);
             ctx.stroke();
-            this.criarFumaca(this.x, bocaY, 0);
+            this.criarFumaca(this.x, bocaY, 0, "#a9a9a9");
         } else {
+            // Sorriso esfumaçado
             ctx.beginPath();
-            ctx.arc(this.x, bocaY + bocaOffset, 10, 0.2, Math.PI - 0.2);
+            ctx.arc(this.x, bocaY, 10, 0.2, Math.PI - 0.2);
             ctx.stroke();
         }
-    }
-    
-    criarFumaca(x, y, direcao) {
-        this.tempoFumaca++;
-        if (this.tempoFumaca > 5) {
-            this.fumacas.push({
-                x: x,
-                y: y,
-                raio: 10,
-                alpha: 0.8,
-                vx: (Math.random() - 0.5) * 2 + direcao * 1,
-                vy: Math.random() * -1 - 0.5,
-                vida: 30
-            });
-            this.tempoFumaca = 0;
-        }
-    }
-    
-    atualizarFumacas() {
-        for (let i = this.fumacas.length - 1; i >= 0; i--) {
-            const f = this.fumacas[i];
-            
-            // Atualiza posição
-            f.x += f.vx;
-            f.y += f.vy;
-            f.raio += 0.3;
-            f.alpha -= 0.02;
-            f.vida--;
-            
-            // Desenha fumaça
-            ctx.fillStyle = `rgba(169, 169, 169, ${f.alpha})`;
-            ctx.beginPath();
-            ctx.arc(f.x, f.y, f.raio, 0, Math.PI * 2);
-            ctx.fill();
-            
-            // Remove fumaça antiga
-            if (f.vida <= 0 || f.alpha <= 0) {
-                this.fumacas.splice(i, 1);
+        
+        // Dentes durante ataque especial
+        if (this.usandoEspecial) {
+            ctx.fillStyle = "#ffffff";
+            for (let i = 0; i < 5; i++) {
+                ctx.beginPath();
+                ctx.arc(this.x - 10 + i * 5, bocaY + 5, 2, 0, Math.PI * 2);
+                ctx.fill();
             }
         }
     }
-    
+
     desenharMorto() {
-        // Peidovélio desaparece em fumaça
-        for(let i = 0; i < 20; i++) {
-            this.criarFumaca(this.x, this.y - 30, 0);
+        // Peidovélio desaparece em fumaça verde tóxica
+        for(let i = 0; i < 30; i++) {
+            this.criarFumaca(this.x, this.y - 30, 0, "#4a8a4a");
         }
         
         // Desenha fumaça da morte
-        ctx.fillStyle = "rgba(105, 105, 105, 0.6)";
+        ctx.fillStyle = "rgba(0, 255, 0, 0.6)";
         ctx.beginPath();
-        ctx.arc(this.x, this.y - 20, 40, 0, Math.PI * 2);
+        ctx.arc(this.x, this.y - 20, 60, 0, Math.PI * 2);
         ctx.fill();
         
         // Olhos X na fumaça
         ctx.strokeStyle = "rgba(0, 0, 0, 0.8)";
-        ctx.lineWidth = 4;
+        ctx.lineWidth = 5;
         
         ctx.beginPath();
-        ctx.moveTo(this.x - 20, this.y - 40);
-        ctx.lineTo(this.x - 10, this.y - 30);
+        ctx.moveTo(this.x - 25, this.y - 40);
+        ctx.lineTo(this.x - 10, this.y - 25);
         ctx.stroke();
         ctx.beginPath();
         ctx.moveTo(this.x - 10, this.y - 40);
-        ctx.lineTo(this.x - 20, this.y - 30);
+        ctx.lineTo(this.x - 25, this.y - 25);
         ctx.stroke();
         
         ctx.beginPath();
         ctx.moveTo(this.x + 10, this.y - 40);
-        ctx.lineTo(this.x + 20, this.y - 30);
+        ctx.lineTo(this.x + 25, this.y - 25);
         ctx.stroke();
         ctx.beginPath();
-        ctx.moveTo(this.x + 20, this.y - 40);
-        ctx.lineTo(this.x + 10, this.y - 30);
+        ctx.moveTo(this.x + 25, this.y - 40);
+        ctx.lineTo(this.x + 10, this.y - 25);
         ctx.stroke();
+        
+        // Símbolo de caveira
+        ctx.fillStyle = "#000000";
+        ctx.font = "40px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText("💀", this.x, this.y - 15);
     }
     
-    // Peidovélio tem ataque especial: Nuvem tóxica
-    atacar(keys, inimigo) {
-        if (!this.vivo || !inimigo.vivo || jogoTerminou) return;
-
-        if (keys[this.ctrl.atk] && !this.atacando && !this.chutando && !this.deslizando) {
-            this.atacando = true;
-            this.tempoAtaque = 12; // Mais longo
-            this.olhosAbertos = false;
-
-            const hit = {
-                x: this.x + this.dir * 40,
-                y: this.y - 50,
-                w: 60, // Área maior
-                h: 40
-            };
-            
-            // Ajuste para abaixado
-            if (this.abaixado && !this.pulando) {
-                hit.y = this.y - 30;
-                hit.h = 30;
-            }
-
-            if (colisao(hit, inimigo.hitbox())) {
-                inimigo.receberDano(6); // Dano menor mas...
-                // Chance de envenenamento (dano contínuo)
-                if (Math.random() < 0.3) {
-                    setTimeout(() => {
-                        if (inimigo.vivo && !jogoTerminou) {
-                            inimigo.receberDano(3);
-                        }
-                    }, 500);
-                }
-            }
-            
-            // Cria fumaça no ataque
-            this.criarFumaca(this.x + this.dir * 30, this.y - 40, this.dir);
-        }
-
-        const teclaChute = this.id === "p1" ? "c" : ".";
-        if (keys[teclaChute] && !this.chutando && !this.atacando && !this.deslizando && !this.abaixado) {
-            this.chutando = true;
-            this.tempoChute = 12;
-            
-            this.sapatoX = this.x + this.dir * 20;
-            this.sapatoY = this.y + 10;
-
-            const hit = {
-                x: this.x + this.dir * 60,
-                y: this.y + 5,
-                w: 50,
-                h: 30
-            };
-
-            if (colisao(hit, inimigo.hitbox())) {
-                inimigo.receberDano(15);
-                // Fumaça no chute
-                this.criarFumaca(this.sapatoX, this.sapatoY, this.dir);
-            }
-        }
-
-        if (this.chutando) {
-            this.tempoChute--;
-            if (this.tempoChute > 8) {
-                this.sapatoX += this.dir * 8;
-                this.sapatoY -= 2;
-                // Rastro de fumaça
-                this.criarFumaca(this.sapatoX, this.sapatoY, this.dir);
-            } else if (this.tempoChute > 4) {
-                this.sapatoY += 1;
-            } else if (this.tempoChute > 0) {
-                this.sapatoX -= this.dir * 6;
-                this.sapatoY += 3;
-            } else {
-                this.chutando = false;
-            }
-        }
-        
-        if (this.atacando && --this.tempoAtaque <= 0) {
-            this.atacando = false;
-            this.olhosAbertos = true;
-        }
+    // Sobrescrever método reset para limpar estados especiais
+    reset() {
+        super.reset();
+        this.fumacas = [];
+        this.nuvensToxicas = [];
+        this.tornados = [];
+        this.cdNuvem = 0;
+        this.cdTornado = 0;
+        this.usandoEspecial = false;
     }
 }
 
@@ -1543,5 +2364,6 @@ function criarPersonagem(tipo, x, controles, direcao, id) {
             return new Cocozin(x, "#8B7355", id === "p1" ? "cyan" : "red", controles, direcao, id);
     }
 }
+
 
 
